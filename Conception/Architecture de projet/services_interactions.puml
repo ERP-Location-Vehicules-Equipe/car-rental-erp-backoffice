@@ -1,0 +1,74 @@
+@startuml
+title ERP Car Rental - Services Interaction Diagram
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor Frontend
+
+package "Core" {
+    component "security.py\n(JWT)"
+    component "database.py\n(SQLAlchemy)"
+}
+
+package "Services" {
+
+    component "User Service"
+    component "Role Service"
+    component "Agence Service"
+    component "Vehicle Service"
+    component "Location Service"
+    component "Payment Service"
+    component "Expense Service"
+    component "Transfer Service"
+    component "Report Service"
+}
+
+database "MySQL Database" as DB
+
+'==================== FRONTEND ====================
+
+Frontend --> "User Service" : REST
+Frontend --> "Agence Service" : REST
+Frontend --> "Vehicle Service" : REST
+Frontend --> "Location Service" : REST
+Frontend --> "Payment Service" : REST
+Frontend --> "Expense Service" : REST
+Frontend --> "Transfer Service" : REST
+Frontend --> "Report Service" : REST
+
+'==================== JWT ====================
+
+"User Service" --> "security.py\n(JWT)"
+"Agence Service" --> "security.py\n(JWT)"
+"Vehicle Service" --> "security.py\n(JWT)"
+"Location Service" --> "security.py\n(JWT)"
+"Payment Service" --> "security.py\n(JWT)"
+"Expense Service" --> "security.py\n(JWT)"
+"Transfer Service" --> "security.py\n(JWT)"
+"Report Service" --> "security.py\n(JWT)"
+
+'==================== DATABASE ====================
+
+"User Service" --> "database.py"
+"Role Service" --> "database.py"
+"Agence Service" --> "database.py"
+"Vehicle Service" --> "database.py"
+"Location Service" --> "database.py"
+"Payment Service" --> "database.py"
+"Expense Service" --> "database.py"
+"Transfer Service" --> "database.py"
+"Report Service" --> "database.py"
+
+"database.py" --> DB
+
+'==================== SERVICE TO SERVICE ====================
+
+"Location Service" --> "Vehicle Service" : Check disponibilité
+"Payment Service" --> "Location Service" : Check solde
+"Transfer Service" --> "Vehicle Service" : Update agence
+"Report Service" --> "Payment Service" : Stats CA
+"Report Service" --> "Expense Service" : Stats charges
+"Report Service" --> "Location Service" : Stats locations
+
+@enduml

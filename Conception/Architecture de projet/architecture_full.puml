@@ -1,0 +1,128 @@
+@startuml
+title ERP Car Rental - Full Architecture Overview
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor Frontend
+
+package "FastAPI Application" {
+
+    package "Core Layer" {
+        component "config.py"
+        component "security.py\n(JWT Auth)"
+        component "database.py\n(SQLAlchemy)"
+    }
+
+    package "Service User" {
+        component "User Controller"
+        component "User Service"
+        component "User Repository"
+    }
+
+    package "Service Agence" {
+        component "Agence Controller"
+        component "Agence Service"
+        component "Agence Repository"
+    }
+
+    package "Service Vehicle" {
+        component "Vehicle Controller"
+        component "Vehicle Service"
+        component "Vehicle Repository"
+    }
+
+    package "Service Location" {
+        component "Location Controller"
+        component "Location Service"
+        component "Location Repository"
+    }
+
+    package "Service Payment" {
+        component "Payment Controller"
+        component "Payment Service"
+        component "Payment Repository"
+    }
+
+    package "Service Expense" {
+        component "Expense Controller"
+        component "Expense Service"
+        component "Expense Repository"
+    }
+
+    package "Service Transfer" {
+        component "Transfer Controller"
+        component "Transfer Service"
+        component "Transfer Repository"
+    }
+}
+
+database "MySQL Database" as DB
+
+'================ FRONTEND =================
+
+Frontend --> "User Controller" : HTTP REST
+Frontend --> "Agence Controller" : HTTP REST
+Frontend --> "Vehicle Controller" : HTTP REST
+Frontend --> "Location Controller" : HTTP REST
+Frontend --> "Payment Controller" : HTTP REST
+Frontend --> "Expense Controller" : HTTP REST
+Frontend --> "Transfer Controller" : HTTP REST
+
+'================ JWT =================
+
+"User Controller" --> "security.py\n(JWT Auth)"
+"Agence Controller" --> "security.py\n(JWT Auth)"
+"Vehicle Controller" --> "security.py\n(JWT Auth)"
+"Location Controller" --> "security.py\n(JWT Auth)"
+"Payment Controller" --> "security.py\n(JWT Auth)"
+"Expense Controller" --> "security.py\n(JWT Auth)"
+"Transfer Controller" --> "security.py\n(JWT Auth)"
+
+'================ USER FLOW =================
+
+"User Controller" --> "User Service"
+"User Service" --> "User Repository"
+"User Repository" --> "database.py"
+"database.py" --> DB
+
+'================ AGENCE FLOW =================
+
+"Agence Controller" --> "Agence Service"
+"Agence Service" --> "Agence Repository"
+"Agence Repository" --> "database.py"
+
+'================ VEHICLE FLOW =================
+
+"Vehicle Controller" --> "Vehicle Service"
+"Vehicle Service" --> "Vehicle Repository"
+"Vehicle Repository" --> "database.py"
+
+'================ LOCATION FLOW =================
+
+"Location Controller" --> "Location Service"
+"Location Service" --> "Vehicle Service" : Check disponibilité
+"Location Service" --> "Location Repository"
+"Location Repository" --> "database.py"
+
+'================ PAYMENT FLOW =================
+
+"Payment Controller" --> "Payment Service"
+"Payment Service" --> "Location Service" : Check solde
+"Payment Service" --> "Payment Repository"
+"Payment Repository" --> "database.py"
+
+'================ EXPENSE FLOW =================
+
+"Expense Controller" --> "Expense Service"
+"Expense Service" --> "Expense Repository"
+"Expense Repository" --> "database.py"
+
+'================ TRANSFER FLOW =================
+
+"Transfer Controller" --> "Transfer Service"
+"Transfer Service" --> "Vehicle Service" : Update agence
+"Transfer Service" --> "Transfer Repository"
+"Transfer Repository" --> "database.py"
+
+@enduml

@@ -1,0 +1,69 @@
+@startuml
+title ERP Car Rental - Architecture FastAPI (Modular Monolith)
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor Frontend
+
+package "FastAPI Application" {
+
+    package "Core Layer" {
+        component "config.py"
+        component "security.py\n(JWT, Auth)"
+        component "database.py\n(SQLAlchemy Engine)"
+    }
+
+    package "Service User" {
+        component "User Controller"
+        component "User Service"
+        component "User Repository"
+        component "User Model"
+        component "User Schema"
+    }
+
+    package "Service Agence" {
+        component "Agence Controller"
+        component "Agence Service"
+        component "Agence Repository"
+        component "Agence Model"
+        component "Agence Schema"
+    }
+
+}
+
+database "MySQL Database" as DB
+
+'========================
+' Frontend communication
+'========================
+
+Frontend --> "User Controller" : HTTP REST (JSON)
+Frontend --> "Agence Controller" : HTTP REST (JSON)
+
+'========================
+' JWT Security
+'========================
+
+"User Controller" --> "security.py\n(JWT, Auth)" : Verify Token
+"Agence Controller" --> "security.py\n(JWT, Auth)" : Verify Token
+
+'========================
+' Business Flow User
+'========================
+
+"User Controller" --> "User Service"
+"User Service" --> "User Repository"
+"User Repository" --> "database.py"
+"database.py" --> DB
+
+'========================
+' Business Flow Agence
+'========================
+
+"Agence Controller" --> "Agence Service"
+"Agence Service" --> "Agence Repository"
+"Agence Repository" --> "database.py"
+"database.py" --> DB
+
+@enduml
