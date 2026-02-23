@@ -1,0 +1,194 @@
+@startuml
+title ERP Location - Database ERD (Optimisé)
+
+' =========================
+' GLOBAL SETTINGS
+' =========================
+scale 0.8
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam defaultFontSize 11
+skinparam entity {
+    BackgroundColor #F8F9FA
+    BorderColor #2C3E50
+}
+skinparam ArrowColor #2C3E50
+skinparam Shadowing false
+
+left to right direction
+
+' =========================
+' AGENCES
+' =========================
+entity agences {
+  +id : bigint <<PK>>
+  nom : varchar
+  adresse : varchar
+  ville : varchar
+  telephone : varchar
+  created_at : datetime
+}
+
+entity utilisateurs {
+  +id : bigint <<PK>>
+  agence_id : bigint <<FK>>
+  nom : varchar
+  email : varchar
+  password : varchar
+  role : varchar
+  actif : boolean
+  created_at : datetime
+}
+
+entity clients {
+  +id : bigint <<PK>>
+  nom_complet : varchar
+  cin : varchar
+  telephone : varchar
+  email : varchar
+  adresse : varchar
+  created_at : datetime
+}
+
+entity categories {
+  +id : bigint <<PK>>
+  libelle : varchar
+  tarif_jour_base : decimal
+}
+
+entity marques {
+  +id : bigint <<PK>>
+  nom : varchar
+}
+
+entity modeles {
+  +id : bigint <<PK>>
+  marque_id : bigint <<FK>>
+  nom : varchar
+}
+
+entity vehicules {
+  +id : bigint <<PK>>
+  agence_id : bigint <<FK>>
+  modele_id : bigint <<FK>>
+  categorie_id : bigint <<FK>>
+  immatriculation : varchar
+  date_mise_en_circulation : date
+  kilometrage : int
+  statut : varchar
+  photo_url : varchar
+  valeur_achat : decimal
+  created_at : datetime
+}
+
+entity entretiens {
+  +id : bigint <<PK>>
+  vehicule_id : bigint <<FK>>
+  type : varchar
+  date_debut : date
+  date_fin : date
+  cout : decimal
+  notes : text
+}
+
+entity locations {
+  +id : bigint <<PK>>
+  client_id : bigint <<FK>>
+  vehicule_id : bigint <<FK>>
+  agence_depart_id : bigint <<FK>>
+  agence_retour_id : bigint <<FK>>
+  date_debut : datetime
+  date_fin_prevue : datetime
+  date_retour_reelle : datetime
+  tarif_jour : decimal
+  montant_total : decimal
+  etat : varchar
+  created_at : datetime
+}
+
+entity transferts {
+  +id : bigint <<PK>>
+  vehicule_id : bigint <<FK>>
+  agence_source_id : bigint <<FK>>
+  agence_destination_id : bigint <<FK>>
+  date_depart : datetime
+  date_arrivee_prevue : datetime
+  date_arrivee_reelle : datetime
+  etat : varchar
+}
+
+entity factures {
+  +id : bigint <<PK>>
+  location_id : bigint <<FK>>
+  numero : varchar
+  montant_ht : decimal
+  tva : decimal
+  montant_ttc : decimal
+  date_emission : datetime
+  statut : varchar
+}
+
+entity comptes_tresorerie {
+  +id : bigint <<PK>>
+  nom : varchar
+  type : varchar
+  solde_actuel : decimal
+}
+
+entity paiements {
+  +id : bigint <<PK>>
+  facture_id : bigint <<FK>>
+  compte_id : bigint <<FK>>
+  montant : decimal
+  mode : varchar
+  date_paiement : datetime
+  reference : varchar
+}
+
+entity charges {
+  +id : bigint <<PK>>
+  type : varchar
+  vehicule_id : bigint
+  agence_id : bigint
+  categorie_charge : varchar
+  montant : decimal
+  date_charge : datetime
+  description : text
+}
+
+entity notifications {
+  +id : bigint <<PK>>
+  utilisateur_id : bigint <<FK>>
+  type : varchar
+  reference_id : bigint
+  message : text
+  lu : boolean
+  created_at : datetime
+}
+
+' =========================
+' RELATIONS
+' =========================
+
+agences ||--o{ utilisateurs
+agences ||--o{ vehicules
+agences ||--o{ locations
+agences ||--o{ transferts
+agences ||--o{ charges
+
+marques ||--o{ modeles
+modeles ||--o{ vehicules
+categories ||--o{ vehicules
+
+vehicules ||--o{ entretiens
+vehicules ||--o{ locations
+vehicules ||--o{ transferts
+vehicules ||--o{ charges
+
+clients ||--o{ locations
+locations ||--|| factures
+factures ||--o{ paiements
+comptes_tresorerie ||--o{ paiements
+utilisateurs ||--o{ notifications
+
+@enduml
