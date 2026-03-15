@@ -19,13 +19,21 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS"))
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def hash_password(password):
+# ==============================
+# Password Functions
+# ==============================
+
+def hash_password(password: str):
     return pwd_context.hash(password)
 
 
 def verify_password(plain, hashed):
     return pwd_context.verify(plain, hashed)
 
+
+# ==============================
+# JWT Token Functions
+# ==============================
 
 def create_access_token(data: dict):
 
@@ -49,14 +57,21 @@ def create_refresh_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
+# ==============================
+# Register Normal User
+# ==============================
+
 def register_user(db: Session, user_data):
 
     hashed = hash_password(user_data.password)
 
     user = User(
-        name=user_data.name,
+        nom=user_data.nom,
         email=user_data.email,
-        password=hashed
+        password=hashed,
+        agence_id=user_data.agence_id,
+        role="employe",
+        actif=True
     )
 
     db.add(user)
@@ -65,6 +80,10 @@ def register_user(db: Session, user_data):
 
     return user
 
+
+# ==============================
+# Login
+# ==============================
 
 def login_user(db: Session, data):
 
@@ -78,7 +97,8 @@ def login_user(db: Session, data):
 
     access_token = create_access_token({
         "user_id": user.id,
-        "email": user.email
+        "email": user.email,
+        "role": user.role
     })
 
     refresh_token = create_refresh_token({
@@ -90,6 +110,10 @@ def login_user(db: Session, data):
         "refresh_token": refresh_token
     }
 
+
+# ==============================
+# Refresh Token
+# ==============================
 
 def refresh_access_token(refresh_token: str):
 
@@ -110,3 +134,47 @@ def refresh_access_token(refresh_token: str):
 
     except JWTError:
         return None
+
+
+# ==============================
+# Create User by Developer/Admin
+# ==============================
+
+def create_user_by_developer(db: Session, user_data):
+
+    hashed_password = hash_password(user_data.password)
+
+    new_user = User(
+        nom=user_data.nom,
+        email=user_data.email,
+        password=hashed_password,
+        role=user_data.role,
+        agence_id=user_data.agence_id,
+        actif=user_data.actif
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
+
+# ==============================
+# Reset Password 
+# ==============================
+
+
+def reset_password(db: Session, data):
+
+    user = db.query(User).filter(User.email == data.email).first()
+
+    if not user:
+        return None
+
+    hashed_password = hash_password(data.new_password)
+
+    user.password = hashed_password
+
+    db.commit()
+
+    return user
