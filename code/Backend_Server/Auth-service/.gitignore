@@ -1,30 +1,62 @@
-# Python
+# =========================
+# Python bytecode / caches
+# =========================
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
 
-# Virtual Environment
+# =========================
+# Virtual environments
+# =========================
 venv/
 env/
 ENV/
 .venv/
 
+# =========================
 # Environment variables
+# =========================
 .env
+.env.*
+!.env.example
 
-# Pytest
+# =========================
+# Pytest / test artifacts
+# =========================
 .pytest_cache/
+**/.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
 
-# Python cache
-*.pyo
-*.pyd
-*.pdb
+# =========================
+# Type/check/lint caches
+# =========================
+.mypy_cache/
+.ruff_cache/
+.pyre/
 
+# =========================
+# Local databases / temp files
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+test_auth_service.db
+test_auth_service_bootstrap.db
 
-
-# Logs
+# =========================
+# Logs / runtime artifacts
+# =========================
 *.log
-
-# Docker
 *.pid
 *.seed
+
+# =========================
+# OS / editor noise
+# =========================
+.DS_Store
+Thumbs.db
