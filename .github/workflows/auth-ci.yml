@@ -43,8 +43,22 @@ jobs:
             echo "auth_dir=Auth-service" >> "$GITHUB_OUTPUT"
           else
             echo "Auth-service directory not found"
-            echo "Repository tree (depth 3):"
-            find . -maxdepth 3 -type d | sort
+            find . -maxdepth 4 -type d | sort
+            exit 1
+          fi
+
+      - name: Resolve tests folder
+        id: resolve_tests
+        shell: bash
+        run: |
+          AUTH_DIR="${{ steps.resolve_path.outputs.auth_dir }}"
+          if [ -d "$AUTH_DIR/tests" ]; then
+            echo "tests_dir=$AUTH_DIR/tests" >> "$GITHUB_OUTPUT"
+          elif [ -d "$AUTH_DIR/Test" ]; then
+            echo "tests_dir=$AUTH_DIR/Test" >> "$GITHUB_OUTPUT"
+          else
+            echo "No tests folder found in $AUTH_DIR (expected tests/ or Test/)"
+            ls -la "$AUTH_DIR"
             exit 1
           fi
 
@@ -60,15 +74,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r "${{ steps.resolve_path.outputs.auth_dir }}/requirements.txt"
 
-      - name: Verify test folders
+      - name: Verify resolved folders
         shell: bash
         run: |
           echo "Resolved service dir: ${{ steps.resolve_path.outputs.auth_dir }}"
-          ls -la "${{ steps.resolve_path.outputs.auth_dir }}"
-          ls -la "${{ steps.resolve_path.outputs.auth_dir }}/tests"
+          echo "Resolved tests dir: ${{ steps.resolve_tests.outputs.tests_dir }}"
+          ls -la "${{ steps.resolve_tests.outputs.tests_dir }}"
 
       - name: Run pytest
-        run: pytest -q "${{ steps.resolve_path.outputs.auth_dir }}/tests"
+        run: pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
 
   docker-build:
     name: Build Auth Service Docker image
