@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./Cahier%20de%20charge/logo.png" alt="ERP Car Rental Logo" width="220" />
+  <img src="./cahier%20de%20charge/logo.png" alt="ERP Car Rental Logo" width="220" />
 </p>
 
 # ERP Car Rental - Back Office
@@ -80,7 +80,7 @@ car-rental-erp-backoffice/
 |- .github/
 |  `- workflows/
 |     `- auth-ci.yml
-|- Cahier de charge/
+|- cahier de charge/
 |  |- cahier de charge.pdf
 |  `- logo.png
 |- Conception/
@@ -103,7 +103,7 @@ car-rental-erp-backoffice/
 ### Detail rapide par dossier
 
 - `.github/workflows/`: pipeline CI pour tester et builder `Auth-service`.
-- `Cahier de charge/`: besoin metier, scope fonctionnel, assets (logo).
+- `cahier de charge/`: besoin metier, scope fonctionnel, assets (logo).
 - `Conception/`: diagrammes d'architecture, modeles de donnees (MCD/MLD), diagrammes UML/PlantUML.
 - `Docs/`: livrables de sprint et documentation projet.
 - `code/Backend_Server/`: backend microservices (auth implementee, agence preparee).
