@@ -14,10 +14,10 @@ from Schemas.AuthSchema import (
 from Controller.AuthController import (
     register_user,
     login_user,
-    refresh_access_token,
     create_user_by_developer,
     reset_password
 )
+from dependencies.AuthDependencies import refresh_access_token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -84,6 +84,9 @@ def create_user(data: CreateUserByDeveloperSchema, db: Session = Depends(get_db)
         "email": user.email,
         "role": user.role
     }
+# ==============================
+# Reset Password
+# ==============================
 @router.post("/reset-password")
 def reset_password_route(data: ResetPasswordSchema, db: Session = Depends(get_db)):
 

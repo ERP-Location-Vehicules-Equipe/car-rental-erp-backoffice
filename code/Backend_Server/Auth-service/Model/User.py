@@ -22,3 +22,5 @@ class User(Base):
     actif = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    deleted_at = Column(DateTime, nullable=True)
