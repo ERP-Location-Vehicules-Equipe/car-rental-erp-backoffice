@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from Model.User import User
 from datetime import datetime
@@ -6,10 +7,12 @@ from datetime import datetime
 # ==============================
 # Get All Users
 # ==============================
-
 def get_all_users(db: Session):
 
     users = db.query(User).filter(User.deleted_at == None).all()
+
+    if not users:
+        raise HTTPException(status_code=404, detail="No users found")
 
     return users
 
@@ -17,7 +20,6 @@ def get_all_users(db: Session):
 # ==============================
 # Get User By ID
 # ==============================
-
 def get_user_by_id(db: Session, user_id: int):
 
     user = db.query(User).filter(
@@ -26,7 +28,7 @@ def get_user_by_id(db: Session, user_id: int):
     ).first()
 
     if not user:
-        return None
+        raise HTTPException(status_code=404, detail="User not found")
 
     return user
 
@@ -34,7 +36,6 @@ def get_user_by_id(db: Session, user_id: int):
 # ==============================
 # Update User
 # ==============================
-
 def update_user(db: Session, user_id: int, data):
 
     user = db.query(User).filter(
@@ -43,12 +44,22 @@ def update_user(db: Session, user_id: int, data):
     ).first()
 
     if not user:
-        return None
+        raise HTTPException(status_code=404, detail="User not found")
 
+    # ✅ update fields
     if data.nom is not None:
         user.nom = data.nom
 
     if data.email is not None:
+        # check email uniqueness
+        existing_user = db.query(User).filter(
+            User.email == data.email,
+            User.id != user_id
+        ).first()
+
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already exists")
+
         user.email = data.email
 
     if data.role is not None:
@@ -69,7 +80,6 @@ def update_user(db: Session, user_id: int, data):
 # ==============================
 # Soft Delete User
 # ==============================
-
 def delete_user(db: Session, user_id: int):
 
     user = db.query(User).filter(
@@ -78,7 +88,7 @@ def delete_user(db: Session, user_id: int):
     ).first()
 
     if not user:
-        return None
+        raise HTTPException(status_code=404, detail="User not found")
 
     user.deleted_at = datetime.utcnow()
 
@@ -90,7 +100,6 @@ def delete_user(db: Session, user_id: int):
 # ==============================
 # Disable User
 # ==============================
-
 def disable_user(db: Session, user_id: int):
 
     user = db.query(User).filter(
@@ -99,7 +108,7 @@ def disable_user(db: Session, user_id: int):
     ).first()
 
     if not user:
-        return None
+        raise HTTPException(status_code=404, detail="User not found")
 
     user.actif = False
 
@@ -112,7 +121,6 @@ def disable_user(db: Session, user_id: int):
 # ==============================
 # Enable User
 # ==============================
-
 def enable_user(db: Session, user_id: int):
 
     user = db.query(User).filter(
@@ -121,7 +129,7 @@ def enable_user(db: Session, user_id: int):
     ).first()
 
     if not user:
-        return None
+        raise HTTPException(status_code=404, detail="User not found")
 
     user.actif = True
 
@@ -134,7 +142,6 @@ def enable_user(db: Session, user_id: int):
 # ==============================
 # Restore Soft Deleted User
 # ==============================
-
 def restore_user(db: Session, user_id: int):
 
     user = db.query(User).filter(
@@ -143,7 +150,7 @@ def restore_user(db: Session, user_id: int):
     ).first()
 
     if not user:
-        return None
+        raise HTTPException(status_code=404, detail="User not found or not deleted")
 
     user.deleted_at = None
 

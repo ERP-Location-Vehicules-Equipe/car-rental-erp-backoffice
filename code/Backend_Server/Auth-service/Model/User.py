@@ -23,4 +23,4 @@ class User(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    deleted_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True,default=None)

@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from config.database import Base, engine
 from Routes.index import router
+from repositories.db_init_delete_at import init_db
+
+
 
 app = FastAPI(
     title="Auth Service",
@@ -13,6 +16,7 @@ app = FastAPI(
 
 try:
     Base.metadata.create_all(bind=engine)
+    init_db()
     print("Database connected successfully")
 
 except Exception as e:
