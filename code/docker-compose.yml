@@ -30,7 +30,7 @@ services:
       - pgadmin_data:/var/lib/pgadmin
 
   auth_service:
-    build: ./Auth-service
+    build: ./Backend_Server/Auth-service
     container_name: auth_microservice
     restart: always
     ports:
@@ -40,6 +40,17 @@ services:
     environment:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/auth_db
 
+  frontend_app:
+    build: ./Frontend
+    container_name: erp_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    depends_on:
+      - auth_service
+
 volumes:
   postgres_data:
+    name: backend_server_postgres_data
   pgadmin_data:
+    name: backend_server_pgadmin_data
