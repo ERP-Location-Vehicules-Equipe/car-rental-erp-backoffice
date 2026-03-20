@@ -70,7 +70,7 @@ Fonctionnalites implementees:
 - `Soft Delete`
 - `Enable / Disable User`
 
-## 5. Documentation complete de l'API
+## 5. Documentation complete de l'API avec Permissions et Rôles
 
 Base URL locale:
 
@@ -84,7 +84,8 @@ http://localhost:8000
 
 - Methode HTTP: `POST`
 - Endpoint: `/api/auth/register`
-- Description: inscrire un utilisateur standard
+- Rôle de la fonction : Inscrire un nouvel utilisateur standard dans le système.
+- Permissions : **Aucune (Public)**. Accessible par tous.
 
 Request JSON example:
 
@@ -110,7 +111,8 @@ Response JSON example (200):
 
 - Methode HTTP: `POST`
 - Endpoint: `/api/auth/login`
-- Description: authentifier un utilisateur et retourner les tokens JWT
+- Rôle de la fonction : Authentifier un utilisateur et retourner les tokens JWT (Access & Refresh).
+- Permissions : **Aucune (Public)**.
 
 Request JSON example:
 
@@ -142,7 +144,8 @@ Response JSON example (401):
 
 - Methode HTTP: `POST`
 - Endpoint: `/api/auth/refresh`
-- Description: generer un nouvel access token a partir d'un refresh token
+- Rôle de la fonction : Générer un nouvel access token à partir d'un refresh token valide.
+- Permissions : **Aucune restriction de rôle**. Nécessite seulement un refresh token valide envoyé dans le body.
 
 Request JSON example:
 
@@ -172,7 +175,8 @@ Response JSON example (401):
 
 - Methode HTTP: `POST`
 - Endpoint: `/api/auth/create-user`
-- Description: creer un utilisateur avec role explicite
+- Rôle de la fonction : Créer un utilisateur avec un rôle explicite (ex: admin, manager). Utile pour l'initialisation du système.
+- Permissions : **Aucune par défaut sur la route** (usage interne ou protégé par une API Gateway au niveau de l'infrastructure).
 
 Request JSON example:
 
@@ -202,7 +206,8 @@ Response JSON example (200):
 
 - Methode HTTP: `POST`
 - Endpoint: `/api/auth/reset-password`
-- Description: reinitialiser le mot de passe d'un utilisateur via email
+- Rôle de la fonction : Réinitialiser le mot de passe d'un utilisateur existant (par ex: suite à oubli de mot de passe).
+- Permissions : **Aucune (Public)**.
 
 Request JSON example:
 
@@ -235,14 +240,11 @@ Response JSON example (404):
 
 - Methode HTTP: `GET`
 - Endpoint: `/api/utilisateurs/profile`
-- Description: recuperer le profil de l'utilisateur connecte
-- Securite: token `Bearer` requis
+- Rôle de la fonction : Récupérer les informations complètes du profil de l'utilisateur actuellement connecté.
+- Permissions : **Utilisateur authentifié** (`Depends(get_current_user)`). Nécessite un Bearer Token JWT valide.
 
 Request JSON example:
-
-```json
-{}
-```
+Aucun body requis.
 
 Response JSON example (200):
 
@@ -257,18 +259,44 @@ Response JSON example (200):
 }
 ```
 
-#### GET `/api/utilisateurs`
+#### PUT `/api/utilisateurs/profile`
 
-- Methode HTTP: `GET`
-- Endpoint: `/api/utilisateurs`
-- Description: lister les utilisateurs actifs (non soft-delete)
-- Securite: acces admin requis
+- Methode HTTP: `PUT`
+- Endpoint: `/api/utilisateurs/profile`
+- Rôle de la fonction : Mettre à jour les informations du profil de l'utilisateur actuellement connecté (nom, email, etc.).
+- Permissions : **Utilisateur authentifié** (`Depends(get_current_user)`). Nécessite un Bearer Token JWT valide.
 
 Request JSON example:
 
 ```json
-{}
+{
+  "nom": "Ahmed Benali Update Profile",
+  "email": "ahmed.benali.new@erp.com"
+}
 ```
+
+Response JSON example (200):
+
+```json
+{
+  "id": 1,
+  "nom": "Ahmed Benali Update Profile",
+  "email": "ahmed.benali.new@erp.com",
+  "role": "employe",
+  "agence_id": 1,
+  "actif": true
+}
+```
+
+#### GET `/api/utilisateurs`
+
+- Methode HTTP: `GET`
+- Endpoint: `/api/utilisateurs`
+- Rôle de la fonction : Lister tous les utilisateurs actifs de la plateforme (sans les données soft deleted).
+- Permissions : **Administrateur uniquement** (`Depends(admin_required)`). Nécessite un Bearer Token JWT valide appartenant à un utilisateur dont le `role` est `admin`.
+
+Request JSON example:
+Aucun body requis.
 
 Response JSON example (200):
 
@@ -297,16 +325,11 @@ Response JSON example (200):
 
 - Methode HTTP: `GET`
 - Endpoint: `/api/utilisateurs/{id}`
-- Description: recuperer un utilisateur par ID
-- Securite: acces admin requis
+- Rôle de la fonction : Récupérer les informations détaillées d'un utilisateur spécifique via son ID.
+- Permissions : **Administrateur uniquement** (`Depends(admin_required)`).
 
 Request JSON example:
-
-```json
-{
-  "id": 2
-}
-```
+Aucun body requis.
 
 Response JSON example (200):
 
@@ -325,8 +348,8 @@ Response JSON example (200):
 
 - Methode HTTP: `PUT`
 - Endpoint: `/api/utilisateurs/{id}`
-- Description: mettre a jour un utilisateur
-- Securite: acces admin requis
+- Rôle de la fonction : Mettre à jour les paramètres d'un utilisateur (rôle, rattachement agence, statut...).
+- Permissions : **Administrateur uniquement** (`Depends(admin_required)`).
 
 Request JSON example:
 
@@ -357,16 +380,11 @@ Response JSON example (200):
 
 - Methode HTTP: `DELETE`
 - Endpoint: `/api/utilisateurs/{id}`
-- Description: soft delete d'un utilisateur
-- Securite: acces admin requis
+- Rôle de la fonction : Supprimer un utilisateur du système. (Applique un Soft Delete pour conserver un historique).
+- Permissions : **Administrateur uniquement** (`Depends(admin_required)`).
 
 Request JSON example:
-
-```json
-{
-  "id": 3
-}
-```
+Aucun body requis.
 
 Response JSON example (200):
 
@@ -380,16 +398,11 @@ Response JSON example (200):
 
 - Methode HTTP: `PATCH`
 - Endpoint: `/api/utilisateurs/{id}/disable`
-- Description: desactiver un utilisateur
-- Securite: acces admin requis
+- Rôle de la fonction : Suspendre l'accès d'un utilisateur sans le supprimer (le compte devient inactif).
+- Permissions : **Administrateur uniquement** (`Depends(admin_required)`).
 
 Request JSON example:
-
-```json
-{
-  "id": 4
-}
-```
+Aucun body requis.
 
 Response JSON example (200):
 
@@ -408,16 +421,11 @@ Response JSON example (200):
 
 - Methode HTTP: `PATCH`
 - Endpoint: `/api/utilisateurs/{id}/enable`
-- Description: activer un utilisateur
-- Securite: acces admin requis
+- Rôle de la fonction : Réactiver l'accès d'un utilisateur précédemment suspendu.
+- Permissions : **Administrateur uniquement** (`Depends(admin_required)`).
 
 Request JSON example:
-
-```json
-{
-  "id": 4
-}
-```
+Aucun body requis.
 
 Response JSON example (200):
 
@@ -435,7 +443,6 @@ Response JSON example (200):
 ## 6. JSON examples pour tester l'API
 
 ### Register
-
 ```json
 {
   "nom": "Yassine Ait",
@@ -446,7 +453,6 @@ Response JSON example (200):
 ```
 
 ### Login
-
 ```json
 {
   "email": "yassine.ait@erp.com",
@@ -455,7 +461,6 @@ Response JSON example (200):
 ```
 
 ### Refresh token
-
 ```json
 {
   "refresh_token": "VOTRE_REFRESH_TOKEN"
@@ -463,7 +468,6 @@ Response JSON example (200):
 ```
 
 ### Create user
-
 ```json
 {
   "nom": "Nadia Manager",
@@ -476,7 +480,6 @@ Response JSON example (200):
 ```
 
 ### Reset password
-
 ```json
 {
   "email": "nadia.manager@erp.com",
@@ -484,8 +487,15 @@ Response JSON example (200):
 }
 ```
 
-### Update user
+### Update user profile (My Profile)
+```json
+{
+  "nom": "Nadia Manager Updated Profile",
+  "email": "nadia.manager.new@erp.com"
+}
+```
 
+### Update user (By Admin)
 ```json
 {
   "nom": "Nadia Manager Updated",
@@ -498,14 +508,13 @@ Response JSON example (200):
 
 ## 7. Headers pour les routes securisees
 
-Pour les routes protegees, utiliser:
+Pour les routes protegees par `Depends(get_current_user)` ou `Depends(admin_required)`, utiliser:
 
 ```http
 Authorization: Bearer TOKEN
 ```
 
 Exemple:
-
 ```http
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9....
 ```
@@ -513,38 +522,28 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9....
 ## 8. Comment lancer le service
 
 ### Option 1 - Docker
-
 Depuis la racine `Backend_Server`:
-
 ```bash
 docker compose up --build
 ```
 
 ### Option 2 - Local (Uvicorn)
-
 Depuis `Auth-service`:
-
 ```bash
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
 Service accessible sur:
-
 ```text
 http://localhost:8000
 ```
 
 ## 9. Test avec Swagger
 
-Swagger UI est disponible sur:
-
-```text
-/docs
-```
+Swagger UI est disponible sur `/docs`.
 
 URL complete en local:
-
 ```text
 http://localhost:8000/docs
 ```
@@ -577,32 +576,28 @@ tests/
 | `tests/test_auth_login.py` | `POST /api/auth/login` (succes, mot de passe invalide, utilisateur introuvable) |
 | `tests/test_auth_refresh.py` | `POST /api/auth/refresh` (refresh token valide / invalide) |
 | `tests/test_auth_reset_password.py` | `POST /api/auth/reset-password` (succes + utilisateur introuvable) et verification du login apres reset |
-| `tests/test_user_profile.py` | `GET /api/utilisateurs/profile` (avec token, sans token, token invalide) |
+| `tests/test_user_profile.py` | `GET /api/utilisateurs/profile` et `PUT /api/utilisateurs/profile` (avec token, sans token, token invalide) |
 | `tests/test_user_management.py` | routes admin: list users, get by id, update, disable, enable, soft delete, controle d'acces non-admin |
 | `tests/json/*.json` | payloads de test reutilisables pour les requetes API |
 
 ### 10.3 Comment lancer les tests
 
 Depuis la racine `Backend_Server` (comme dans ton terminal):
-
 ```bash
 pytest -q Auth-service/tests
 ```
 
 Depuis le dossier `Auth-service`:
-
 ```bash
 pytest -q
 ```
 
 Lancer un seul fichier:
-
 ```bash
 pytest -q tests/test_auth_login.py
 ```
 
 Lancer un seul test:
-
 ```bash
 pytest -q tests/test_auth_login.py::test_login_user_success
 ```
@@ -610,9 +605,8 @@ pytest -q tests/test_auth_login.py::test_login_user_success
 ### 10.4 Resultat attendu
 
 Si tout est correct, tu dois voir un resume comme:
-
 ```text
-21 passed
+22 passed
 ```
 
 Des `warnings` peuvent apparaitre, mais tant que tu n'as pas de `FAILED`, la suite de tests est valide.
@@ -623,7 +617,6 @@ Le `Auth Service` est un composant cle du systeme ERP.
 Il centralise l'authentification, les roles et la securite des acces.
 
 Il peut etre integre directement avec:
-
 - Agence Service
 - Fleet Service
 - Location Service

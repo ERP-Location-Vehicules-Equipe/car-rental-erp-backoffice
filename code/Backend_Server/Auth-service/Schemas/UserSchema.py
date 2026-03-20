@@ -46,7 +46,11 @@ class UserResponseSchema(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class UpdateMyProfileSchema(BaseModel):
 
+    nom: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 class UserListResponseSchema(BaseModel):
 

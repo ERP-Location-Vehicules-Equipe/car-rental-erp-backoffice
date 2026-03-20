@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import userService from '../../Services/userService';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 const CreateUser = () => {
     const navigate = useNavigate();
@@ -33,11 +34,7 @@ const CreateUser = () => {
             await userService.createUser(formData);
             navigate('/users');
         } catch (err) {
-            if (err.response && err.response.data && err.response.data.detail) {
-                setError(JSON.stringify(err.response.data.detail));
-            } else {
-                setError('Erreur lors de la création de l\'utilisateur.');
-            }
+            setError(getErrorMessage(err, 'Erreur lors de la création de l\'utilisateur.'));
         } finally {
             setLoading(false);
         }

@@ -7,6 +7,12 @@ const userService = {
         return response.data;
     },
 
+    // Mettre à jour le profil courant (nom et email)
+    updateMyProfile: async (userData) => {
+        const response = await api.put('/utilisateurs/profile', userData);
+        return response.data;
+    },
+
     // Récupérer la liste de tous les utilisateurs (accès admin)
     getAllUsers: async () => {
         const response = await api.get('/utilisateurs');

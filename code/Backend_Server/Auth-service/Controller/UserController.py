@@ -32,6 +32,40 @@ def get_user_by_id(db: Session, user_id: int):
 
     return user
 
+# ==============================
+# Update My Profile
+# ==============================
+def update_my_profile(db: Session, current_user: User, data):
+
+    user = db.query(User).filter(
+        User.id == current_user.id,
+        User.deleted_at == None
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    #  Update name
+    if data.nom is not None:
+        user.nom = data.nom
+
+    #  Update email with uniqueness check
+    if data.email is not None:
+
+        existing_user = db.query(User).filter(
+            User.email == data.email,
+            User.id != user.id
+        ).first()
+
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already exists")
+
+        user.email = data.email
+
+    db.commit()
+    db.refresh(user)
+
+    return user
 
 # ==============================
 # Update User

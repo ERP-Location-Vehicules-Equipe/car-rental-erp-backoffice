@@ -6,6 +6,7 @@ from config.database import get_db
 from Controller.UserController import (
     get_all_users,
     get_user_by_id,
+    update_my_profile,
     update_user,
     delete_user,
     disable_user,
@@ -18,6 +19,7 @@ from dependencies.AuthDependencies import (
 )
 
 from Schemas.UserSchema import (
+    UpdateMyProfileSchema,
     UpdateUserSchema,
     UserResponseSchema
 )
@@ -66,7 +68,17 @@ def get_user(
 ):
     return get_user_by_id(db, user_id)
 
+# ==============================
+# Update My Profile
+# ==============================
 
+@router.put("/profile", response_model=UserResponseSchema)
+def update_my_profile_route(
+        data: UpdateMyProfileSchema,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    return update_my_profile(db, current_user, data)
 # ==============================
 # Update User
 # ==============================

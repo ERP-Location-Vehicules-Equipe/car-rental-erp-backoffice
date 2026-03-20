@@ -30,8 +30,10 @@ api.interceptors.response.use(
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user');
-            // Redirection vers la page de connexion
-            window.location.href = '/login';
+            // Redirection vers la page de connexion uniquement si on n'y est pas déjà
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

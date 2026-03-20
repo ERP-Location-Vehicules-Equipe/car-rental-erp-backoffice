@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../../Services/authService';
+import { getErrorMessage } from '../../utils/errorHandler';
 import logoImg from '../../images/logo.png';
 
 const Login = () => {
@@ -10,6 +11,13 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    // Redirige immédiatement si l'utilisateur est déjà authentifié
+    useEffect(() => {
+        if (authService.isAuthenticated()) {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [navigate]);
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -17,14 +25,10 @@ const Login = () => {
 
         try {
             await authService.login(email, password);
-            // Après une connexion réussie, on redirige vers le dashboard
-            navigate('/dashboard');
+            // Après connexion réussie, redirige au tableau de bord
+            navigate('/dashboard', { replace: true });
         } catch (err) {
-            if (err.response && err.response.status === 401) {
-                setError('Adresse email ou mot de passe incorrect.');
-            } else {
-                setError('Une erreur réseau est survenue. Veuillez réessayer plus tard.');
-            }
+            setError(getErrorMessage(err));
         } finally {
             setLoading(false);
         }
@@ -57,7 +61,7 @@ const Login = () => {
                 </div>
                 <form className="mt-8 space-y-6" onSubmit={handleLogin}>
                     {error && (
-                        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-pulse">
                             <p className="text-red-700 text-sm font-medium">{error}</p>
                         </div>
                     )}

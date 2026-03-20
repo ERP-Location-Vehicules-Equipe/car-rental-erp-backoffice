@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import userService from '../../Services/userService';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 const EditUser = () => {
     const { id } = useParams();
@@ -29,7 +30,7 @@ const EditUser = () => {
                     actif: user.actif
                 });
             } catch (err) {
-                setError('Impossible de récupérer les informations de l\'utilisateur.');
+                setError(getErrorMessage(err, 'Impossible de récupérer les informations de l\'utilisateur.'));
             } finally {
                 setLoading(false);
             }
@@ -55,11 +56,7 @@ const EditUser = () => {
             await userService.updateUser(id, formData);
             navigate('/users');
         } catch (err) {
-            if (err.response && err.response.data && err.response.data.detail) {
-                setError(JSON.stringify(err.response.data.detail));
-            } else {
-                setError('Erreur lors de la mise à jour de l\'utilisateur.');
-            }
+            setError(getErrorMessage(err, 'Erreur lors de la mise à jour de l\'utilisateur.'));
         } finally {
             setSaving(false);
         }

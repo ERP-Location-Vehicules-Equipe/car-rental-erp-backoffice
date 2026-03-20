@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import userService from '../../Services/userService';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 const UsersList = () => {
     const [users, setUsers] = useState([]);
@@ -13,7 +14,7 @@ const UsersList = () => {
             const data = await userService.getAllUsers();
             setUsers(data);
         } catch (err) {
-            setError('Erreur lors du chargement des utilisateurs. Vérifiez que vous avez les droits administrateur.');
+            setError(getErrorMessage(err, 'Erreur lors du chargement des utilisateurs.'));
         } finally {
             setLoading(false);
         }
@@ -32,7 +33,7 @@ const UsersList = () => {
             }
             setUsers(users.map(u => u.id === user.id ? { ...u, actif: !user.actif } : u));
         } catch (err) {
-            alert("Erreur lors du changement de statut.");
+            alert(getErrorMessage(err, "Erreur lors du changement de statut."));
         }
     };
 
@@ -42,7 +43,7 @@ const UsersList = () => {
                 await userService.deleteUser(id);
                 setUsers(users.filter(u => u.id !== id));
             } catch (err) {
-                alert("Erreur lors de la suppression.");
+                alert(getErrorMessage(err, "Erreur lors de la suppression."));
             }
         }
     };
@@ -139,6 +140,9 @@ const UsersList = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                                                <Link to={`/users/${user.id}`} className="text-slate-600 hover:text-slate-900 transition-colors font-bold">
+                                                    Détails
+                                                </Link>
                                                 <Link to={`/users/edit/${user.id}`} className="text-blue-600 hover:text-blue-900 transition-colors">
                                                     Modifier
                                                 </Link>
