@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  # 1. Your Python Notification App
+  notification-app:
+    build: .
+    container_name: notification_service
+    ports:
+      - "8002:8002"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+      - mailhog
+
+
+  # 2. RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: always
+
+  # 3. MailHog
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025" # SMTP server (for your app to send to)
+      - "8025:8025" # Web UI (to view emails in browser)
+    restart: always
+
+  worker:
+    build: .
+    command: python worker.py
+    depends_on:
+      - rabbitmq
+      - mailhog
+    env_file:
+      - .env
+
+volumes:
+  rabbitmq_data:
