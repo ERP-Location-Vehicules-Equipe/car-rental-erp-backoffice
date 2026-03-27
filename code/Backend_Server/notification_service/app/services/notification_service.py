@@ -1,4 +1,5 @@
 from app.services.email_service import send_email
+from typing import Dict, Any
 
 
 def get_notification_content(notification: Dict[str, Any]) -> tuple:

@@ -15,7 +15,7 @@ async def send_email(to: str, subject: str, body: str) -> None:
         message.attach(MIMEText(body, "html"))
 
         smtp = aiosmtplib.SMTP(
-            hostname="localhost",
+            hostname="mailhog",
             port=1025,      # MailHog default SMTP port
             use_tls=False,  # plain SMTP
         )

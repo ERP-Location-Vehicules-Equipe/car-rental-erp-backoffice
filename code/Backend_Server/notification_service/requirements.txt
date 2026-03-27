@@ -4,3 +4,4 @@ aio-pika
 aiosmtplib
 pydantic
 python-dotenv
+pydantic-settings

@@ -12,13 +12,21 @@ services:
     env_file:
       - .env
     depends_on:
-      - rabbitmq
-      - mailhog
+      rabbitmq:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+
 
 
   # 2. RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     container_name: rabbitmq
     ports:
       - "5672:5672"
@@ -43,8 +51,10 @@ services:
     build: .
     command: python worker.py
     depends_on:
-      - rabbitmq
-      - mailhog
+      rabbitmq:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
     env_file:
       - .env
 
