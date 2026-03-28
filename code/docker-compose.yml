@@ -40,6 +40,17 @@ services:
     environment:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/auth_db
 
+  agence_service:
+    build: ./Backend_Server/Agence-service
+    container_name: agence_microservice
+    restart: always
+    ports:
+      - "8002:8002"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/agence_db
+
   frontend_app:
     build: ./Frontend
     container_name: erp_frontend
