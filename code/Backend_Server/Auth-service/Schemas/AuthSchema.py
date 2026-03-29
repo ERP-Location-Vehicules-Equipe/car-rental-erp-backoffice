@@ -1,5 +1,6 @@
+from typing import Literal, Optional
+
 from pydantic import BaseModel, EmailStr
-from typing import Optional
 
 
 class RegisterSchema(BaseModel):
@@ -22,12 +23,12 @@ class CreateUserByDeveloperSchema(BaseModel):
     nom: str
     email: EmailStr
     password: str
-
-    role: str  
+    # Rôles autorisés dans le système.
+    role: Literal["employe", "admin", "super_admin"]
     agence_id: int
-
     actif: Optional[bool] = True
-    
+
+
 class ResetPasswordSchema(BaseModel):
     email: EmailStr
     new_password: str

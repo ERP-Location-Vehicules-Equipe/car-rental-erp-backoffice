@@ -103,6 +103,23 @@ def admin_user(db_session):
 
 
 @pytest.fixture(scope="function")
+def super_admin_user(db_session):
+    """Utilisateur super admin avec accès global."""
+    user = User(
+        nom="Super Admin Test",
+        email="superadmin@erp.com",
+        password=hash_password("SuperAdminPass123!"),
+        role="super_admin",
+        agence_id=999,
+        actif=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture(scope="function")
 def employee_user(db_session):
     """Utilisateur employe standard pour login/profile."""
     user = User(
@@ -120,10 +137,39 @@ def employee_user(db_session):
 
 
 @pytest.fixture(scope="function")
+def employee_other_agence(db_session):
+    """Employé appartenant à une autre agence pour les tests de scope admin."""
+    user = User(
+        nom="Employe Autre Agence",
+        email="employee.other@erp.com",
+        password=hash_password("EmployeeOtherPass123!"),
+        role="employe",
+        agence_id=2,
+        actif=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture(scope="function")
 def admin_token(admin_user):
     """JWT admin."""
     return create_access_token(
         {"user_id": admin_user.id, "email": admin_user.email, "role": admin_user.role}
+    )
+
+
+@pytest.fixture(scope="function")
+def super_admin_token(super_admin_user):
+    """JWT super admin."""
+    return create_access_token(
+        {
+            "user_id": super_admin_user.id,
+            "email": super_admin_user.email,
+            "role": super_admin_user.role,
+        }
     )
 
 
@@ -149,6 +195,12 @@ def employee_refresh_token(employee_user):
 def admin_auth_header(admin_token):
     """Header Authorization pour admin."""
     return {"Authorization": f"Bearer {admin_token}"}
+
+
+@pytest.fixture(scope="function")
+def super_admin_auth_header(super_admin_token):
+    """Header Authorization pour super admin."""
+    return {"Authorization": f"Bearer {super_admin_token}"}
 
 
 @pytest.fixture(scope="function")

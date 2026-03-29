@@ -4,11 +4,11 @@ import request from "supertest";
 const TOKEN = "Bearer fake-jwt-for-tests";
 
 const mockVerifyToken = jest.fn((req, res, next) => {
-  req.user = { user_id: 1, role: "admin" };
+  req.user = { user_id: 1, role: "super_admin" };
   next();
 });
 
-const mockIsAdmin = jest.fn((req, res, next) => next());
+const mockIsSuperAdmin = jest.fn((req, res, next) => next());
 
 const mockAgenceModel = {
   create: jest.fn(),
@@ -22,7 +22,7 @@ jest.unstable_mockModule("../src/middlewares/authMiddleware.js", () => ({
 }));
 
 jest.unstable_mockModule("../src/middlewares/roleMiddleware.js", () => ({
-  isAdmin: mockIsAdmin,
+  isSuperAdmin: mockIsSuperAdmin,
 }));
 
 jest.unstable_mockModule("../src/models/agenceModel.js", () => ({
