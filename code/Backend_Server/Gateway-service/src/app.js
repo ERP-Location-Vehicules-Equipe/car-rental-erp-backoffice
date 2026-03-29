@@ -1,40 +1,43 @@
 import express from "express";
 import cors from "cors";
-import { createProxyMiddleware } from "http-proxy-middleware";
 import dotenv from "dotenv";
+
+import { authProxy, agenceProxy, usersProxy } from "./routes/index.js";
+import { logger } from "./middlewares/loggerMiddleware.js";
+import { errorHandler } from "./middlewares/errorMiddleware.js";
 
 dotenv.config();
 
 const app = express();
 
+// ==============================
+// GLOBAL MIDDLEWARES
+// ==============================
 app.use(cors());
 app.use(express.json());
 
-// ==============================
-// AUTH SERVICE
-// ==============================
-app.use(
-  "/api/auth",
-  createProxyMiddleware({
-    target: process.env.AUTH_SERVICE_URL,
-    changeOrigin: true,
-  })
-);
+// Logging
+app.use(logger);
 
 // ==============================
-// AGENCE SERVICE
+// ROUTES (PROXY)
 // ==============================
-app.use(
-  "/api/agences",
-  createProxyMiddleware({
-    target: process.env.AGENCE_SERVICE_URL,
-    changeOrigin: true,
-  })
-);
+app.use("/api/auth", authProxy);
+app.use("/api/utilisateurs", usersProxy);
+app.use("/api/agences", agenceProxy);
 
-// TEST
+// ==============================
+// TEST ROUTE
+// ==============================
 app.get("/", (req, res) => {
-  res.json({ message: "API Gateway is running" });
+  res.json({
+    message: "API Gateway is running",
+  });
 });
+
+// ==============================
+// ERROR HANDLER
+// ==============================
+app.use(errorHandler);
 
 export default app;

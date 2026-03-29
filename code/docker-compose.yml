@@ -51,6 +51,20 @@ services:
     environment:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/agence_db
 
+  gateway_service:
+    build: ./Backend_Server/Gateway-service
+    container_name: gateway_microservice
+    restart: always
+    ports:
+      - "8001:8001"
+    depends_on:
+      - auth_service
+      - agence_service
+    environment:
+      PORT: 8001
+      AUTH_SERVICE_URL: http://auth_service:8000
+      AGENCE_SERVICE_URL: http://agence_service:8002
+
   frontend_app:
     build: ./Frontend
     container_name: erp_frontend
@@ -58,7 +72,7 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - auth_service
+      - gateway_service
 
 volumes:
   postgres_data:
