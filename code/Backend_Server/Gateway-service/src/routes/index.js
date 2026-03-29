@@ -1,4 +1,4 @@
-import { createProxyMiddleware } from "http-proxy-middleware";
+import { createProxyMiddleware, fixRequestBody } from "http-proxy-middleware";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -6,15 +6,22 @@ dotenv.config();
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:8000";
 const AGENCE_SERVICE_URL = process.env.AGENCE_SERVICE_URL || "http://localhost:8002";
 
-const buildProxy = (target, pathPattern, serviceName) =>
+const buildProxy = (target, upstreamBasePath, serviceName) =>
   createProxyMiddleware({
     target,
     changeOrigin: true,
-    pathRewrite: {
-      [pathPattern]: pathPattern,
+    pathRewrite: (path) => {
+      if (path === "/" || path === "") {
+        return upstreamBasePath;
+      }
+      return `${upstreamBasePath}${path}`;
     },
-    // Retourne une erreur exploitable si le service cible est indisponible.
+    // Corrige le forwarding des requetes POST/PUT quand le body a deja ete parse par Express.
     on: {
+      proxyReq: (proxyReq, req, res) => {
+        fixRequestBody(proxyReq, req, res);
+      },
+      // Retourne une erreur exploitable si le service cible est indisponible.
       error: (err, req, res) => {
         if (!res.headersSent) {
           res.writeHead(502, { "Content-Type": "application/json" });
@@ -32,14 +39,18 @@ const buildProxy = (target, pathPattern, serviceName) =>
 // ==============================
 // AUTH SERVICE PROXY
 // ==============================
-export const authProxy = buildProxy(AUTH_SERVICE_URL, "^/api/auth", "Auth service");
+export const authProxy = buildProxy(
+  AUTH_SERVICE_URL,
+  "/api/auth",
+  "Auth service"
+);
 
 // ==============================
 // USERS SERVICE PROXY (vers Auth Service)
 // ==============================
 export const usersProxy = buildProxy(
   AUTH_SERVICE_URL,
-  "^/api/utilisateurs",
+  "/api/utilisateurs",
   "Users service"
 );
 
@@ -48,6 +59,6 @@ export const usersProxy = buildProxy(
 // ==============================
 export const agenceProxy = buildProxy(
   AGENCE_SERVICE_URL,
-  "^/api/agences",
+  "/api/agences",
   "Agence service"
 );
