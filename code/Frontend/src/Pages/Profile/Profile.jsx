@@ -4,6 +4,25 @@ import authService from '../../Services/authService';
 import { getAgencesCachedSafe, getAgenceNameById } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
 
+const getRoleBadge = (role) => {
+    if (role === authService.ROLE_SUPER_ADMIN) {
+        return {
+            label: 'SUPER ADMIN',
+            className: 'bg-amber-100 text-amber-800 border border-amber-200',
+        };
+    }
+    if (role === authService.ROLE_ADMIN) {
+        return {
+            label: 'ADMIN',
+            className: 'bg-purple-100 text-purple-800 border border-purple-200',
+        };
+    }
+    return {
+        label: 'EMPLOYE',
+        className: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+    };
+};
+
 const Profile = () => {
     const [profile, setProfile] = useState(null);
     const [agenceName, setAgenceName] = useState('-');
@@ -129,6 +148,8 @@ const Profile = () => {
             </div>
         );
     }
+
+    const roleBadge = getRoleBadge(profile?.role);
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -285,12 +306,8 @@ const Profile = () => {
                             <div className="bg-slate-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 border-t border-slate-100">
                                 <dt className="text-sm font-medium text-slate-500">Role</dt>
                                 <dd className="mt-1 text-sm text-slate-900 sm:mt-0 sm:col-span-2">
-                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                        profile?.role === 'admin'
-                                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    }`}>
-                                        {profile?.role?.toUpperCase()}
+                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${roleBadge.className}`}>
+                                        {roleBadge.label}
                                     </span>
                                 </dd>
                             </div>

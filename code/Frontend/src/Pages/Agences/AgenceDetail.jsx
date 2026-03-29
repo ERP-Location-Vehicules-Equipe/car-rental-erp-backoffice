@@ -16,7 +16,7 @@ const AgenceDetail = () => {
     const [agence, setAgence] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const isAdmin = authService.isAdmin();
+    const canManageAgences = authService.canManageAgences();
 
     useEffect(() => {
         const fetchAgence = async () => {
@@ -77,7 +77,7 @@ const AgenceDetail = () => {
                     >
                         Retour
                     </Link>
-                    {isAdmin && (
+                    {canManageAgences && (
                         <Link
                             to={`/agences/edit/${agence.id}`}
                             className="inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-all"

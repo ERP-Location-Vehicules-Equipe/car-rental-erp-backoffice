@@ -1,11 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import authService from '../../Services/authService';
-import { getAgencesCachedSafe, getAgenceNameById } from '../../Services/agenceLookupService';
+import { getAgenceNameById, getAgencesCachedSafe } from '../../Services/agenceLookupService';
+
+const getRoleBadge = (role) => {
+    if (role === authService.ROLE_SUPER_ADMIN) {
+        return {
+            label: 'SUPER ADMIN',
+            className: 'bg-amber-100 text-amber-800 border border-amber-200',
+        };
+    }
+    if (role === authService.ROLE_ADMIN) {
+        return {
+            label: 'ADMIN',
+            className: 'bg-purple-100 text-purple-800 border border-purple-200',
+        };
+    }
+    return {
+        label: 'EMPLOYE',
+        className: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+    };
+};
 
 const Dashboard = () => {
     const user = authService.getCurrentUser();
-    const isAdmin = authService.isAdmin();
+    const canManageUsers = authService.canManageUsers();
+    const canManageAgences = authService.canManageAgences();
     const [agenceName, setAgenceName] = useState('Chargement...');
     const [agenceWarning, setAgenceWarning] = useState('');
 
@@ -19,7 +39,7 @@ const Dashboard = () => {
             try {
                 const agencesResult = await getAgencesCachedSafe();
                 if (!agencesResult.available) {
-                    setAgenceWarning("Service Agence indisponible. Affichage du nom agence limite.");
+                    setAgenceWarning("Service Agence indisponible. Affichage du nom d'agence limite.");
                 }
                 setAgenceName(getAgenceNameById(agencesResult.agences, user.agence_id));
             } catch {
@@ -29,6 +49,8 @@ const Dashboard = () => {
 
         loadAgenceName();
     }, [user?.agence_id]);
+
+    const roleBadge = getRoleBadge(user?.role);
 
     return (
         <div className="space-y-6">
@@ -51,12 +73,8 @@ const Dashboard = () => {
                         <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                             <dt className="text-sm font-medium text-slate-500">Role</dt>
                             <dd className="mt-1 text-sm text-slate-900 sm:mt-0 sm:col-span-2">
-                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    isAdmin
-                                        ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                }`}>
-                                    {user?.role?.toUpperCase()}
+                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${roleBadge.className}`}>
+                                    {roleBadge.label}
                                 </span>
                             </dd>
                         </div>
@@ -94,7 +112,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {isAdmin && (
+                {canManageUsers && (
                     <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-slate-200 transition-all hover:shadow-md">
                         <div className="p-5">
                             <div className="flex items-center">
@@ -112,6 +130,29 @@ const Dashboard = () => {
                         <div className="bg-slate-50 px-5 py-3 border-t border-slate-100">
                             <Link to="/users" className="font-medium text-purple-600 hover:text-purple-800 flex items-center text-sm">
                                 Gerer les acces
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
+                {canManageAgences && (
+                    <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-slate-200 transition-all hover:shadow-md">
+                        <div className="p-5">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0 bg-amber-100 rounded-lg p-3">
+                                    <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div className="ml-5 w-0 flex-1">
+                                    <p className="text-sm font-medium text-slate-500 truncate">Supervision</p>
+                                    <p className="mt-1 text-lg font-semibold text-slate-900">Gestion des agences</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 px-5 py-3 border-t border-slate-100">
+                            <Link to="/agences" className="font-medium text-amber-700 hover:text-amber-800 flex items-center text-sm">
+                                Administrer les agences
                             </Link>
                         </div>
                     </div>
