@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const AGENCE_API_BASE_URL = import.meta.env.VITE_AGENCE_API_URL || 'http://localhost:8002/api';
+
 const agenceApi = axios.create({
-    baseURL: 'http://localhost:8002/api',
+    baseURL: AGENCE_API_BASE_URL,
 });
 
 agenceApi.interceptors.request.use(

@@ -64,6 +64,9 @@ export const getErrorMessage = (error, defaultMessage = "Une erreur est survenue
         if (lowerDetail.includes('not enough permissions') || lowerDetail.includes('admin')) {
             return "Acces refuse. Vous n'avez pas les droits d'administration necessaires.";
         }
+        if (lowerDetail.includes('agence not found')) {
+            return 'Agence not found';
+        }
 
         return detail;
     }
@@ -78,6 +81,9 @@ export const getErrorMessage = (error, defaultMessage = "Une erreur est survenue
     }
 
     if (typeof message === 'string' && message.trim() !== '') {
+        if (message.toLowerCase().includes('agence not found')) {
+            return 'Agence not found';
+        }
         return message;
     }
 

@@ -1,4 +1,5 @@
 import api from '../api/api';
+import { clearAgencesCache } from './agenceLookupService';
 
 const authService = {
     // Connexion de l'utilisateur
@@ -20,6 +21,7 @@ const authService = {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
+        clearAgencesCache();
     },
 
     // Récupérer les informations de l'utilisateur courant depuis le localStorage

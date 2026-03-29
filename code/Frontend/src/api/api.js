@@ -1,40 +1,35 @@
 import axios from 'axios';
 
-// Configuration de base de l'API (à adapter selon l'environnement)
+const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8000/api';
+
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api', // L'URL de base selon la documentation
+    baseURL: AUTH_API_BASE_URL,
 });
 
-// Intercepteur pour ajouter le token JWT à chaque requête
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('access_token');
         if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// Intercepteur pour gérer les erreurs, notamment le 401 (Non autorisé)
 api.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
     (error) => {
         if (error.response && error.response.status === 401) {
-            // Si on reçoit un 401, le token est expiré ou invalide
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user');
-            // Redirection vers la page de connexion uniquement si on n'y est pas déjà
+
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }
         }
+
         return Promise.reject(error);
     }
 );

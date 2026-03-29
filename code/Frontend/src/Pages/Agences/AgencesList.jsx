@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import agenceService from '../../Services/agenceService';
 import authService from '../../Services/authService';
@@ -39,7 +39,7 @@ const AgencesList = () => {
         }
     };
 
-    const fetchDeletedAgences = async () => {
+    const fetchDeletedAgences = useCallback(async () => {
         if (!isAdmin) {
             return;
         }
@@ -54,7 +54,7 @@ const AgencesList = () => {
         } finally {
             setLoadingDeleted(false);
         }
-    };
+    }, [isAdmin]);
 
     useEffect(() => {
         fetchAgences();
@@ -64,7 +64,7 @@ const AgencesList = () => {
         if (showDeleted) {
             fetchDeletedAgences();
         }
-    }, [showDeleted]);
+    }, [showDeleted, fetchDeletedAgences]);
 
     const handleToggleStatus = async (agence) => {
         try {
