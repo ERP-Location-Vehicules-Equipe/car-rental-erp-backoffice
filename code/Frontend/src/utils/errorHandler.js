@@ -55,6 +55,9 @@ export const getErrorMessage = (error, defaultMessage = "Une erreur est survenue
         if (lowerDetail.includes('invalid credentials') || lowerDetail.includes('incorrect')) {
             return "Adresse email ou mot de passe incorrect.";
         }
+        if (lowerDetail.includes('account is inactive') || lowerDetail.includes('inactive account')) {
+            return "Votre compte n'est pas actif. Merci de contacter votre administrateur.";
+        }
         if (lowerDetail.includes('user not found')) {
             return "Cet utilisateur est introuvable.";
         }

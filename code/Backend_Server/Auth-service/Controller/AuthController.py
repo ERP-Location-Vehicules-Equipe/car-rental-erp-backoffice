@@ -55,6 +55,13 @@ def login_user(db: Session, data):
     if not verify_password(data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # Interdire la connexion des comptes desactives.
+    if user.actif is False:
+        raise HTTPException(
+            status_code=403,
+            detail="Account is inactive. Please contact your admin.",
+        )
+
     access_token = create_access_token(
         {"user_id": user.id, "email": user.email, "role": user.role}
     )
