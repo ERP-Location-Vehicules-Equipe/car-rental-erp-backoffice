@@ -10,6 +10,10 @@ const buildProxy = (target, upstreamBasePath, serviceName) =>
   createProxyMiddleware({
     target,
     changeOrigin: true,
+    // Evite d'exposer les redirects internes (ex: auth_service:8000) au navigateur.
+    // Le gateway suit/re-ecrit les redirections et renvoie une reponse propre au frontend.
+    followRedirects: true,
+    autoRewrite: true,
     pathRewrite: (path) => {
       if (path === "/" || path === "") {
         return upstreamBasePath;

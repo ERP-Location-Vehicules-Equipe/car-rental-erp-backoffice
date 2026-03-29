@@ -81,6 +81,7 @@ Examples:
 - `POST /api/auth/login`
 - `POST /api/auth/create-user`
 - `GET /api/utilisateurs/profile`
+- `GET /api/utilisateurs/`
 - `GET /api/agences`
 
 ## 6) Local Run
@@ -186,6 +187,20 @@ Fix already implemented:
 
 - Dynamic `pathRewrite` keeps upstream path consistent (`/api/auth/...`, `/api/utilisateurs/...`, `/api/agences/...`).
 
+### `GET /api/utilisateurs` returns `307 Temporary Redirect`
+
+Root cause:
+
+- FastAPI users list route is declared as `/utilisateurs/` (with trailing slash).
+- Redirect location can expose internal docker host names if not handled.
+
+Fix implemented:
+
+- Gateway enables redirect-safe proxy behavior:
+  - `followRedirects: true`
+  - `autoRewrite: true`
+- Frontend users list call now targets `/utilisateurs/` directly.
+
 ### Only one service is down
 
 Behavior:
@@ -193,7 +208,16 @@ Behavior:
 - Only routes that depend on that service fail with `502`.
 - Other routes continue to work normally.
 
-## 12) Notes for Contributors
+## 12) Frontend Integration (Gateway Only)
+
+Current integration contract:
+
+- Frontend base API URL: `http://localhost:8001/api`
+- Frontend must not call `:8000` or `:8002` directly.
+- In `docker-compose.yml`, `frontend_app` injects:
+  - `VITE_API_GATEWAY_URL=http://localhost:8001/api`
+
+## 13) Notes for Contributors
 
 - Keep gateway logic lightweight (routing, proxying, resilience).
 - Do not move business rules from Auth/Agence services into gateway.

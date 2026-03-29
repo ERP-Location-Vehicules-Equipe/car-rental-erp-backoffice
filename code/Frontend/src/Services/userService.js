@@ -15,7 +15,7 @@ const userService = {
 
     // Récupérer la liste de tous les utilisateurs (accès admin)
     getAllUsers: async () => {
-        const response = await api.get('/utilisateurs');
+        const response = await api.get('/utilisateurs/');
         return response.data;
     },
 
