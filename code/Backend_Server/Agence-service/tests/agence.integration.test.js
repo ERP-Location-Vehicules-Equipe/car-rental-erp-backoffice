@@ -220,4 +220,34 @@ describe("Agence API - integration tests (real JWT + real DB)", () => {
     expect(res.statusCode).toBe(404);
     expect(res.body.message).toBe("Agence not found");
   });
+
+  it("GET /api/agences/deleted -> list deleted agences", async () => {
+    const res = await request(app)
+      .get("/api/agences/deleted")
+      .set("Authorization", token);
+
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.some((agence) => agence.id === agenceId)).toBe(true);
+  });
+
+  it("PATCH /api/agences/:id/restore -> restore deleted agence", async () => {
+    const res = await request(app)
+      .patch(`/api/agences/${agenceId}/restore`)
+      .set("Authorization", token);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.message).toBe("Agence restored successfully");
+    expect(res.body.agence.id).toBe(agenceId);
+    expect(res.body.agence.deleted_at).toBeNull();
+  });
+
+  it("GET /api/agences/:id after restore -> should return 200", async () => {
+    const res = await request(app)
+      .get(`/api/agences/${agenceId}`)
+      .set("Authorization", token);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.id).toBe(agenceId);
+  });
 });

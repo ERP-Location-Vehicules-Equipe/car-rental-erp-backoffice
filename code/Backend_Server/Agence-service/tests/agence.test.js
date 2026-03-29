@@ -162,6 +162,43 @@ describe("Agence API - tests sans DB (mock model)", () => {
     expect(res.body.message).toBe("Agence deleted successfully");
   });
 
+  it("GET /api/agences/deleted -> recuperer historique des agences supprimees", async () => {
+    const deletedAgences = [
+      buildAgenceInstance({
+        id: 11,
+        code: "DEL01",
+        deleted_at: new Date().toISOString(),
+      }),
+    ];
+    mockAgenceModel.findAll.mockResolvedValue(deletedAgences);
+
+    const res = await request(app)
+      .get("/api/agences/deleted")
+      .set("Authorization", TOKEN);
+
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].code).toBe("DEL01");
+  });
+
+  it("PATCH /api/agences/:id/restore -> restaurer une agence supprimee", async () => {
+    const agence = buildAgenceInstance({
+      id: 21,
+      deleted_at: new Date().toISOString(),
+    });
+    mockAgenceModel.findOne.mockResolvedValue(agence);
+
+    const res = await request(app)
+      .patch("/api/agences/21/restore")
+      .set("Authorization", TOKEN);
+
+    expect(res.statusCode).toBe(200);
+    expect(agence.update).toHaveBeenCalledWith({ deleted_at: null });
+    expect(res.body.message).toBe("Agence restored successfully");
+    expect(res.body.agence.deleted_at).toBeNull();
+  });
+
   it("GET /api/agences/:id -> retourne 404 si agence introuvable", async () => {
     mockAgenceModel.findOne.mockResolvedValue(null);
 

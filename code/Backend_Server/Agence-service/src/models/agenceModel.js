@@ -15,19 +15,36 @@ const Agence = sequelize.define("Agence", {
   nom: {
     type: DataTypes.STRING,
     allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: "Le nom de l'agence est obligatoire",
+      },
+    },
   },
 
   // Code unique de l'agence (ex: CASA01)
   code: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
+    unique: {
+      msg: "Ce code agence existe deja",
+    },
+    validate: {
+      notEmpty: {
+        msg: "Le code agence est obligatoire",
+      },
+    },
   },
 
   // Ville de l'agence
   ville: {
     type: DataTypes.STRING,
     allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: "La ville est obligatoire",
+      },
+    },
   },
 
   // Adresse complète
@@ -46,9 +63,13 @@ const Agence = sequelize.define("Agence", {
   email: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true,
+    unique: {
+      msg: "Cet email agence existe deja",
+    },
     validate: {
-      isEmail: true, // validation format email
+      isEmail: {
+        msg: "Le format de l'email est invalide",
+      }, // validation format email
     },
   },
 

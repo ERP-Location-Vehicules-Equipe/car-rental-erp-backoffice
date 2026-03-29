@@ -2,9 +2,11 @@ import express from "express";
 import {
   createAgence,
   getAllAgences,
+  getDeletedAgences,
   getAgenceById,
   updateAgence,
   deleteAgence,
+  restoreAgence,
   disableAgence,
   enableAgence
 } from "../controllers/agenceController.js";
@@ -20,6 +22,7 @@ const router = express.Router();
 // ==============================
 
 router.get("/", verifyToken, getAllAgences);
+router.get("/deleted", verifyToken, isAdmin, getDeletedAgences);
 router.get("/:id", verifyToken, getAgenceById);
 
 
@@ -30,6 +33,7 @@ router.get("/:id", verifyToken, getAgenceById);
 router.post("/", verifyToken, isAdmin, createAgence);
 router.put("/:id", verifyToken, isAdmin, updateAgence);
 router.delete("/:id", verifyToken, isAdmin, deleteAgence);
+router.patch("/:id/restore", verifyToken, isAdmin, restoreAgence);
 
 
 // ==============================

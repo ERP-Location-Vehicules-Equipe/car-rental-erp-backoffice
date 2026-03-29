@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import Agence from "../models/agenceModel.js";
 
 // ==============================
@@ -5,13 +6,10 @@ import Agence from "../models/agenceModel.js";
 // ==============================
 export const createAgence = async (req, res, next) => {
   try {
-
     const data = req.body;
-
     const agence = await Agence.create(data);
 
     res.status(201).json(agence);
-
   } catch (error) {
     next(error);
   }
@@ -22,13 +20,31 @@ export const createAgence = async (req, res, next) => {
 // ==============================
 export const getAllAgences = async (req, res, next) => {
   try {
-
     const agences = await Agence.findAll({
-      where: { deleted_at: null }
+      where: { deleted_at: null },
     });
 
     res.json(agences);
+  } catch (error) {
+    next(error);
+  }
+};
 
+// ==============================
+// GET DELETED AGENCES (HISTORIQUE)
+// ==============================
+export const getDeletedAgences = async (req, res, next) => {
+  try {
+    const agences = await Agence.findAll({
+      where: {
+        deleted_at: {
+          [Op.ne]: null,
+        },
+      },
+      order: [["deleted_at", "DESC"]],
+    });
+
+    res.json(agences);
   } catch (error) {
     next(error);
   }
@@ -39,11 +55,10 @@ export const getAllAgences = async (req, res, next) => {
 // ==============================
 export const getAgenceById = async (req, res, next) => {
   try {
-
     const { id } = req.params;
 
     const agence = await Agence.findOne({
-      where: { id, deleted_at: null }
+      where: { id, deleted_at: null },
     });
 
     if (!agence) {
@@ -51,7 +66,6 @@ export const getAgenceById = async (req, res, next) => {
     }
 
     res.json(agence);
-
   } catch (error) {
     next(error);
   }
@@ -62,12 +76,11 @@ export const getAgenceById = async (req, res, next) => {
 // ==============================
 export const updateAgence = async (req, res, next) => {
   try {
-
     const { id } = req.params;
     const data = req.body;
 
     const agence = await Agence.findOne({
-      where: { id, deleted_at: null }
+      where: { id, deleted_at: null },
     });
 
     if (!agence) {
@@ -77,7 +90,6 @@ export const updateAgence = async (req, res, next) => {
     await agence.update(data);
 
     res.json(agence);
-
   } catch (error) {
     next(error);
   }
@@ -88,11 +100,10 @@ export const updateAgence = async (req, res, next) => {
 // ==============================
 export const deleteAgence = async (req, res, next) => {
   try {
-
     const { id } = req.params;
 
     const agence = await Agence.findOne({
-      where: { id, deleted_at: null }
+      where: { id, deleted_at: null },
     });
 
     if (!agence) {
@@ -102,7 +113,37 @@ export const deleteAgence = async (req, res, next) => {
     await agence.update({ deleted_at: new Date() });
 
     res.json({ message: "Agence deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
 
+// ==============================
+// RESTORE AGENCE (SOFT DELETE)
+// ==============================
+export const restoreAgence = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const agence = await Agence.findOne({
+      where: {
+        id,
+        deleted_at: {
+          [Op.ne]: null,
+        },
+      },
+    });
+
+    if (!agence) {
+      return res.status(404).json({ message: "Deleted agence not found" });
+    }
+
+    await agence.update({ deleted_at: null });
+
+    res.json({
+      message: "Agence restored successfully",
+      agence,
+    });
   } catch (error) {
     next(error);
   }
@@ -113,7 +154,6 @@ export const deleteAgence = async (req, res, next) => {
 // ==============================
 export const disableAgence = async (req, res, next) => {
   try {
-
     const { id } = req.params;
 
     const agence = await Agence.findByPk(id);
@@ -125,7 +165,6 @@ export const disableAgence = async (req, res, next) => {
     await agence.update({ actif: false });
 
     res.json(agence);
-
   } catch (error) {
     next(error);
   }
@@ -136,7 +175,6 @@ export const disableAgence = async (req, res, next) => {
 // ==============================
 export const enableAgence = async (req, res, next) => {
   try {
-
     const { id } = req.params;
 
     const agence = await Agence.findByPk(id);
@@ -148,7 +186,6 @@ export const enableAgence = async (req, res, next) => {
     await agence.update({ actif: true });
 
     res.json(agence);
-
   } catch (error) {
     next(error);
   }
