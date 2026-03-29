@@ -1,0 +1,83 @@
+version: "3.9"
+
+services:
+
+  postgres_db:
+    image: postgres:15
+    container_name: erp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_password
+      POSTGRES_DB: auth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: erp_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@erp.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres_db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  auth_service:
+    build: ./Backend_Server/Auth-service
+    container_name: auth_microservice
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/auth_db
+
+  agence_service:
+    build: ./Backend_Server/Agence-service
+    container_name: agence_microservice
+    restart: always
+    ports:
+      - "8002:8002"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/agence_db
+
+  gateway_service:
+    build: ./Backend_Server/Gateway-service
+    container_name: gateway_microservice
+    restart: always
+    ports:
+      - "8001:8001"
+    depends_on:
+      - auth_service
+      - agence_service
+    environment:
+      PORT: 8001
+      AUTH_SERVICE_URL: http://auth_service:8000
+      AGENCE_SERVICE_URL: http://agence_service:8002
+
+  frontend_app:
+    build: ./Frontend
+    container_name: erp_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_GATEWAY_URL: http://localhost:8001/api
+    depends_on:
+      - gateway_service
+
+volumes:
+  postgres_data:
+    name: backend_server_postgres_data
+  pgadmin_data:
+    name: backend_server_pgadmin_data

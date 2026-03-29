@@ -1,9 +1,9 @@
+from typing import List, Literal, Optional
+
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
 
 
 class CreateEmployeeSchema(BaseModel):
-
     nom: str
     email: EmailStr
     password: str
@@ -11,32 +11,28 @@ class CreateEmployeeSchema(BaseModel):
 
 
 class UpdateUserSchema(BaseModel):
-
     nom: Optional[str] = None
     email: Optional[EmailStr] = None
-    role: Optional[str] = None
+    # Le rôle est limité aux rôles supportés.
+    role: Optional[Literal["employe", "admin", "super_admin"]] = None
     agence_id: Optional[int] = None
     actif: Optional[bool] = None
 
 
 class ChangePasswordSchema(BaseModel):
-
     old_password: str
     new_password: str
 
 
 class UpdateUserRoleSchema(BaseModel):
-
-    role: str
+    role: Literal["employe", "admin", "super_admin"]
 
 
 class UpdateUserStatusSchema(BaseModel):
-
     actif: bool
 
 
 class UserResponseSchema(BaseModel):
-
     id: int
     nom: str
     email: EmailStr
@@ -48,6 +44,10 @@ class UserResponseSchema(BaseModel):
         from_attributes = True
 
 
-class UserListResponseSchema(BaseModel):
+class UpdateMyProfileSchema(BaseModel):
+    nom: Optional[str] = None
+    email: Optional[EmailStr] = None
 
+
+class UserListResponseSchema(BaseModel):
     users: List[UserResponseSchema]
