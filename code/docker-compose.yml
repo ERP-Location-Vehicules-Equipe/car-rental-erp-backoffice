@@ -71,6 +71,8 @@ services:
     restart: always
     ports:
       - "5173:5173"
+    environment:
+      VITE_API_GATEWAY_URL: http://localhost:8001/api
     depends_on:
       - gateway_service
 
