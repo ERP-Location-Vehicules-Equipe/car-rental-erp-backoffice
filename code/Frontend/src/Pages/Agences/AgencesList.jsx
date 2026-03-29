@@ -25,7 +25,7 @@ const AgencesList = () => {
     const [showDeleted, setShowDeleted] = useState(false);
     const [error, setError] = useState('');
     const [deletedError, setDeletedError] = useState('');
-    const isAdmin = authService.isAdmin();
+    const canManageAgences = authService.canManageAgences();
 
     const fetchAgences = async () => {
         try {
@@ -40,7 +40,7 @@ const AgencesList = () => {
     };
 
     const fetchDeletedAgences = useCallback(async () => {
-        if (!isAdmin) {
+        if (!canManageAgences) {
             return;
         }
 
@@ -54,7 +54,7 @@ const AgencesList = () => {
         } finally {
             setLoadingDeleted(false);
         }
-    }, [isAdmin]);
+    }, [canManageAgences]);
 
     useEffect(() => {
         fetchAgences();
@@ -125,7 +125,7 @@ const AgencesList = () => {
                         Consultez et administrez le reseau d'agences.
                     </p>
                 </div>
-                {isAdmin && (
+                {canManageAgences && (
                     <div className="mt-4 sm:mt-0 flex items-center gap-3">
                         <button
                             onClick={() => setShowDeleted((prev) => !prev)}
@@ -190,7 +190,7 @@ const AgencesList = () => {
                                     <Link to={`/agences/${agence.id}`} className="text-slate-700 hover:text-slate-900">
                                         Details
                                     </Link>
-                                    {isAdmin && (
+                                    {canManageAgences && (
                                         <>
                                             <Link to={`/agences/edit/${agence.id}`} className="text-blue-600 hover:text-blue-900">
                                                 Modifier
@@ -223,7 +223,7 @@ const AgencesList = () => {
                 </table>
             </div>
 
-            {isAdmin && showDeleted && (
+            {canManageAgences && showDeleted && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900">Historique des suppressions</h3>

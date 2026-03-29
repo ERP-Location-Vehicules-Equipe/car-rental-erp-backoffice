@@ -1,11 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import authService from '../../Services/authService';
+import { getAgenceNameById, getAgencesCachedSafe } from '../../Services/agenceLookupService';
 import userService from '../../Services/userService';
-import { getAgencesCachedSafe } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
 
 const CreateUser = () => {
     const navigate = useNavigate();
+    const currentUser = authService.getCurrentUser();
+    const isSuperAdmin = authService.isSuperAdmin();
+    const isAdmin = authService.isAdmin();
+
     const [loading, setLoading] = useState(false);
     const [loadingAgences, setLoadingAgences] = useState(true);
     const [agenceServiceAvailable, setAgenceServiceAvailable] = useState(true);
@@ -20,32 +25,53 @@ const CreateUser = () => {
         email: '',
         password: '',
         role: 'employe',
-        agence_id: '',
+        agence_id: isAdmin && currentUser?.agence_id ? String(currentUser.agence_id) : '',
         actif: true,
     });
+
+    const ownAgenceName = useMemo(
+        () => {
+            const resolved = getAgenceNameById(agences, currentUser?.agence_id);
+            if (resolved === 'Agence inconnue' && currentUser?.agence_id) {
+                return `Agence #${currentUser.agence_id}`;
+            }
+            return resolved;
+        },
+        [agences, currentUser?.agence_id]
+    );
 
     useEffect(() => {
         const loadAgences = async () => {
             setLoadingAgences(true);
+            setAgenceWarning('');
+
             const result = await getAgencesCachedSafe();
             setAgences(result.agences);
             setAgenceServiceAvailable(result.available);
 
             if (!result.available) {
-                setAgenceWarning("Service Agence indisponible. Vous pouvez saisir l'ID agence manuellement.");
+                // On affiche un warning sans bloquer le formulaire.
+                if (isSuperAdmin) {
+                    setAgenceWarning("Service Agence indisponible. Saisissez l'ID agence manuellement.");
+                } else {
+                    setAgenceWarning("Service Agence indisponible. Votre agence est appliquee automatiquement.");
+                }
             }
 
-            if (result.agences.length > 0) {
+            // Super admin: selection libre de l'agence.
+            if (isSuperAdmin && result.agences.length > 0) {
                 setFormData((prev) => ({
                     ...prev,
                     agence_id: prev.agence_id || String(result.agences[0].id),
                 }));
             }
 
-            if (!result.available) {
+            // Admin: agence forcee a sa propre agence.
+            if (isAdmin && currentUser?.agence_id) {
                 setFormData((prev) => ({
                     ...prev,
-                    agence_id: prev.agence_id || '1',
+                    agence_id: String(currentUser.agence_id),
+                    role: 'employe',
                 }));
             }
 
@@ -53,10 +79,20 @@ const CreateUser = () => {
         };
 
         loadAgences();
-    }, []);
+    }, [currentUser?.agence_id, isAdmin, isSuperAdmin]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+
+        // Admin ne peut pas changer le role.
+        if (name === 'role' && !isSuperAdmin) {
+            return;
+        }
+
+        // Admin ne peut pas changer l'agence.
+        if (name === 'agence_id' && isAdmin) {
+            return;
+        }
 
         setFormData((prev) => ({
             ...prev,
@@ -80,30 +116,35 @@ const CreateUser = () => {
         setSuccessMessage('');
         setFieldErrors({});
 
-        if (!formData.agence_id) {
-            setFieldErrors({ agence_id: "Selectionnez une agence." });
-            setError("Veuillez choisir une agence.");
+        const forcedAgenceId = isAdmin ? Number(currentUser?.agence_id) : Number(formData.agence_id);
+        const forcedRole = isSuperAdmin ? formData.role : 'employe';
+
+        if (!Number.isFinite(forcedAgenceId) || forcedAgenceId <= 0) {
+            setFieldErrors({ agence_id: 'Selectionnez une agence valide.' });
+            setError('Veuillez choisir une agence valide.');
             setLoading(false);
             return;
         }
 
         const payload = {
-            ...formData,
-            agence_id: Number(formData.agence_id),
+            nom: formData.nom.trim(),
+            email: formData.email.trim(),
+            password: formData.password,
+            role: forcedRole,
+            agence_id: forcedAgenceId,
+            actif: formData.actif,
         };
 
         try {
             await userService.createUser(payload);
-            const message = "Utilisateur cree avec succes.";
+            const message = 'Utilisateur cree avec succes.';
             setSuccessMessage(message);
-            alert(message);
             navigate('/users');
         } catch (err) {
             const backendMessage = `${err?.response?.data?.message || err?.response?.data?.detail || ''}`.toLowerCase();
             if (backendMessage.includes('agence not found')) {
                 setFieldErrors({ agence_id: 'Agence not found' });
                 setError('Agence not found');
-                alert('Agence not found');
             } else {
                 setError(getErrorMessage(err, "Erreur lors de la creation de l'utilisateur."));
             }
@@ -153,7 +194,7 @@ const CreateUser = () => {
                         <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                             <div className="sm:col-span-2">
                                 <label htmlFor="nom" className="block text-sm font-medium text-slate-700 mb-1">
-                                    Nom Complet
+                                    Nom complet
                                 </label>
                                 <input
                                     type="text"
@@ -168,7 +209,7 @@ const CreateUser = () => {
 
                             <div className="sm:col-span-1">
                                 <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-                                    Adresse Email
+                                    Adresse email
                                 </label>
                                 <input
                                     type="email"
@@ -198,25 +239,39 @@ const CreateUser = () => {
 
                             <div className="sm:col-span-1">
                                 <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-1">
-                                    Role Systeme
+                                    Role systeme
                                 </label>
                                 <select
                                     id="role"
                                     name="role"
                                     value={formData.role}
                                     onChange={handleChange}
-                                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-slate-300 rounded-lg py-2 px-3 border bg-white"
+                                    disabled={!isSuperAdmin}
+                                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-slate-300 rounded-lg py-2 px-3 border bg-white disabled:bg-slate-100 disabled:text-slate-500"
                                 >
                                     <option value="employe">Employe</option>
-                                    <option value="admin">Administrateur</option>
+                                    {isSuperAdmin && <option value="admin">Administrateur</option>}
                                 </select>
+                                {!isSuperAdmin && (
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        Un admin peut creer uniquement des employes.
+                                    </p>
+                                )}
                             </div>
 
                             <div className="sm:col-span-1">
                                 <label htmlFor="agence_id" className="block text-sm font-medium text-slate-700 mb-1">
                                     Agence
                                 </label>
-                                {agenceServiceAvailable ? (
+                                {isAdmin ? (
+                                    <input
+                                        id="agence_admin_display"
+                                        type="text"
+                                        readOnly
+                                        value={ownAgenceName}
+                                        className="shadow-sm block w-full sm:text-sm rounded-lg py-2 px-3 border border-slate-300 bg-slate-100 text-slate-600"
+                                    />
+                                ) : agenceServiceAvailable ? (
                                     <select
                                         id="agence_id"
                                         name="agence_id"
@@ -230,12 +285,8 @@ const CreateUser = () => {
                                                 : 'border-slate-300 focus:ring-blue-500 focus:border-blue-500'
                                         }`}
                                     >
-                                        {loadingAgences && (
-                                            <option value="">Chargement des agences...</option>
-                                        )}
-                                        {!loadingAgences && agences.length === 0 && (
-                                            <option value="">Aucune agence disponible</option>
-                                        )}
+                                        {loadingAgences && <option value="">Chargement des agences...</option>}
+                                        {!loadingAgences && agences.length === 0 && <option value="">Aucune agence disponible</option>}
                                         {!loadingAgences && agences.length > 0 && agences.map((agence) => (
                                             <option key={agence.id} value={agence.id}>
                                                 {agence.nom}
@@ -280,7 +331,9 @@ const CreateUser = () => {
                                         <label htmlFor="actif" className="font-bold text-slate-700 cursor-pointer">
                                             Compte actif immediat
                                         </label>
-                                        <p className="text-slate-500 mt-1">Activer directement l'acces au systeme pour cet utilisateur.</p>
+                                        <p className="text-slate-500 mt-1">
+                                            Activer directement l'acces au systeme pour cet utilisateur.
+                                        </p>
                                     </div>
                                 </div>
                             </div>

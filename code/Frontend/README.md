@@ -1,129 +1,123 @@
-# Frontend - Service d'Authentification & Gestion Utilisateurs (ERP Location de Voitures)
+# Frontend ERP (React + Vite)
 
-Ce projet est le Frontend React associé au microservice **Auth Service** du système ERP de location de voitures. Il s'agit d'une Single Page Application (SPA) développée avec **React**, propulsée par **Vite**, et stylisée avec **Tailwind CSS**.
+Frontend backoffice for the ERP car-rental project.
 
-Elle gère de bout en bout l'authentification (JWT), les rôles (employé/admin), et la gestion complète des comptes utilisateurs de l'entreprise.
+## 1) Role in the architecture
 
----
+The frontend talks to one backend entrypoint only:
 
-## 🚀 Fonctionnalités Principales
+- API Gateway: `http://localhost:8001/api`
 
-### 🔐 Sécurité & Authentification
-* **Authentification par Token JWT** (stocké de manière sécurisée dans le `localStorage`).
-* **Intercepteurs Axios Globaux** : attachement automatique du token aux requêtes et déconnexion forcée en cas de token expiré (Erreur 401).
-* **Routage Sécurisé (Protected & Public Routes)** : 
-  * Impossible d'accéder au tableau de bord sans être connecté (pas de "flash" d'écran).
-  * Impossible d'accéder à la page de Login si on est déjà connecté.
-* **Gestion des rôles (RBAC)** : Les routes de gestion des utilisateurs sont strictement réservées aux Administrateurs.
+It does not call Auth Service (`:8000`) or Agence Service (`:8002`) directly anymore.
 
-### 👤 Fonctionnalités Utilisateur (Employés & Admins)
-* **Connexion sécurisée** avec gestion d'erreurs en direct.
-* **Tableau de Bord personnalisé** récapitulant l'accès.
-* **Gestion du Profil** : Mise à jour de ses informations personnelles (Nom, Email) via un endpoint dédié.
-* **Changement de Mot de passe** avec validation UI complète.
+## 2) Main features
 
-### 🛠️ Administration (Admins uniquement)
-* **Liste des utilisateurs** (avec moteur de pagination/tri côté backend si implémenté).
-* **Création de nouveaux employés** et attribution à une agence/succursale.
-* **Edition des utilisateurs** (Changement de rôle, d'email, etc.).
-* **Fiche Détails Utilisateur** complète.
-* **Activation / Désactivation** des comptes en un clic.
-* **Suppression logique (Soft Delete)** pour préserver l'intégrité de l'historique de l'ERP.
+- Login with JWT token.
+- Profile page (read/update current user).
+- Users management (list, create, edit, enable/disable, delete) with role-based UI.
+- Agences management pages.
+- Agence name display (instead of agence_id) when data is available.
+- Graceful degradation when Agence Service is down (warning message, no app crash).
 
-### 🌐 Expérience Utilisateur (UX)
-* **Centralisation des Erreurs** : Utilitaire métier traduisant dynamiquement toutes les erreurs renvoyées par le backend (FastAPI/Pydantic) en français pour l'utilisateur, tout en évitant les logs polluants dans la console.
-* **UI/UX Moderne et Responsive** construite intégralement avec des classes utilitaires de *Tailwind CSS* formattées aux standards de l'industrie.
+## 3) Recent updates (what was done now)
 
----
+- Unified API access through Gateway only.
+  - `src/api/api.js` -> base URL uses `VITE_API_GATEWAY_URL`.
+  - `src/api/agenceApi.js` -> same gateway base URL.
+- Added frontend env variable:
+  - `VITE_API_GATEWAY_URL=http://localhost:8001/api`
+- Docker Compose frontend service now injects `VITE_API_GATEWAY_URL`.
+- Updated users list call to avoid FastAPI trailing-slash redirect:
+  - `getAllUsers()` now calls `/utilisateurs/` (with final slash).
+- Existing fallback behavior kept:
+  - If Agence Service is unavailable, pages show warning and continue with auth/users data.
 
-## 📂 Architecture du Projet (Feature-Based)
-
-Le projet suit une architecture propre et modulaire, favorisant la maintenabilité à long terme pour la suite de l'ERP.
+## 4) Project structure
 
 ```text
 Frontend/
-│
-├── public/                 # Assets statiques (ex: logo.png)
-├── src/
-│   ├── api/                # Configuration d'Axios (Base URL, Intercepteurs)
-│   │   └── api.js          # Client HTTP configuré
-│   │
-│   ├── Components/         # Composants UI partagés et réutilisables (Boutons, Modals, etc.)
-│   │
-│   ├── Layouts/            # Structures de pages globales
-│   │   └── MainLayout.jsx  # Layout avec Sidebar/Navbar persistant post-login
-│   │
-│   ├── Pages/              # Vues organisées par domaines fonctionnels
-│   │   ├── Auth/           # Pages de connexion
-│   │   ├── Dashboard/      # Tableau de bord post-connexion
-│   │   ├── Profile/        # Mon compte (Informations et Sécurité)
-│   │   └── Users/          # CRUD Administration (Liste, Ajout, Détails, Edition)
-│   │
-│   ├── Routes/             # Composants de couverture pour la sécurité de la navigation
-│   │   ├── ProtectedRoute.jsx  # Bloque les invités et gère les droits admin
-│   │   └── PublicRoute.jsx     # Évite aux membres connectés de revoir l'écran de Login
-│   │
-│   ├── Services/           # Couche métier - Fonctions d'appels API
-│   │   ├── authService.js  # Connexion, Déconnexion, Parsing JWT
-│   │   └── userService.js  # Opérations CRUD utilisateurs
-│   │
-│   ├── utils/              # Fonctions utilitaires diverses
-│   │   └── errorHandler.js # Traducteur global des erreurs venant de l'API FastAPI
-│   │
-│   ├── images/             # Images compilées par Vite (ex: logo utilisé en React)
-│   │
-│   ├── App.jsx             # Configuration racine des Routes React Router Dom
-│   └── main.jsx            # Point d'entrée de l'application (React DOM)
-│
-├── index.html              # Fichier racine de l'app (et injection de Tailwind via CDN)
-├── package.json            # Dépendances Node.js (React, Axios, React Router)
-├── vite.config.js          # Configuration du bundler Vite
-└── README.md               # Ce fichier
+  src/
+    api/
+      api.js
+      agenceApi.js
+    Layouts/
+    Pages/
+      Auth/
+      Dashboard/
+      Profile/
+      Users/
+      Agences/
+    Routes/
+    Services/
+      authService.js
+      userService.js
+      agenceService.js
+      agenceLookupService.js
+    utils/
+      errorHandler.js
 ```
 
----
+## 5) Environment variables
 
-## 🛠️ Stack Technique
+Use `.env` (or `.env.local`) in `code/Frontend/`:
 
-* **React 18** (UI Library)
-* **Vite** (Build Tool ultra-rapide)
-* **React Router v6** (Navigation SPA)
-* **Axios** (Client HTTP asynchrone)
-* **TailwindCSS** (Framework CSS intégré via CDN, sans configuration postcss locale lourde)
+```env
+VITE_API_GATEWAY_URL=http://localhost:8001/api
+```
 
----
+Default fallback in code is also `http://localhost:8001/api`.
 
-## ⚙️ Installation et Lancement Rapide
+## 6) Local run
 
-Vous devez disposer de **Node.js** (v16+ recommandé).
+From `code/Frontend`:
 
-### 1. Cloner ou naviguer dans le projet
-\`\`\`bash
-cd code/Frontend
-\`\`\`
-
-### 2. Installer les dépendances
-\`\`\`bash
+```bash
 npm install
-\`\`\`
-
-### 3. Démarrer le serveur de développement local
-\`\`\`bash
 npm run dev
-\`\`\`
-*(Le serveur se lance généralement sur `http://localhost:5173`)*
+```
 
-> **Note :** Assurez-vous que le **Auth Service (Backend FastAPI)** tourne simultanément sur `http://localhost:8000`. L'URL de l'API est définie par défaut dans `src/api/api.js`.
+Frontend URL:
 
----
+```text
+http://localhost:5173
+```
 
-## 🔗 Documentation des Services (Couche Logique)
+## 7) Docker run
 
-La logique de communication backend est extraite des composants UI pour respecter la séparation des préoccupations.
+Frontend service is defined in:
 
-* **`authService.js`** contient `login(email, password)`, `logout()`, et `resetPassword()`.
-* **`userService.js`** contient `getProfile()`, `updateMyProfile(data)` pour l'utilisateur courant, et tous les endpoints de gestion (`getAllUsers`, `createUser`, `updateUser`, `disableUser`, etc.) nécessitant l'élévation des privilèges.
+- `code/docker-compose.yml`
 
-## ⚠️ Notes de développement futur
+Important:
 
-* **Variables d'Environnement** : Il est recommandé plus tard de passer l'URL de l'API `http://localhost:8000/api` dans un fichier `.env` (`VITE_API_BASE_URL`) pour gérer facilement les déploiements de Pre-production et Production.
+- `frontend_app` depends on `gateway_service`.
+- `VITE_API_GATEWAY_URL` is injected in compose.
+
+## 8) API usage rules
+
+- Always call routes through gateway prefix `/api`.
+- Auth examples:
+  - `POST /auth/login`
+  - `GET /utilisateurs/profile`
+  - `GET /utilisateurs/`
+- Agence examples:
+  - `GET /agences`
+  - `POST /agences`
+
+## 9) Error handling behavior
+
+- `401`: user is logged out and redirected to `/login`.
+- Network/downstream issues: translated error message via `src/utils/errorHandler.js`.
+- Agence service down:
+  - frontend can still work for auth/users flows.
+  - agence name lookups can fallback to warning/unknown label.
+
+## 10) Quick troubleshooting
+
+If browser still calls old URLs or internal Docker hosts:
+
+1. Rebuild frontend container:
+   - `docker compose up -d --build frontend_app`
+2. Rebuild gateway if proxy code changed:
+   - `docker compose up -d --build gateway_service`
+3. Hard refresh browser (`Ctrl + F5`).

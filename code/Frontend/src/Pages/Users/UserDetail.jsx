@@ -4,6 +4,25 @@ import userService from '../../Services/userService';
 import { getAgencesCached, getAgenceNameById } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
 
+const getRoleUi = (role) => {
+    if (role === 'super_admin') {
+        return {
+            dotClass: 'bg-amber-500',
+            label: 'Super administrateur',
+        };
+    }
+    if (role === 'admin') {
+        return {
+            dotClass: 'bg-purple-500',
+            label: 'Administrateur',
+        };
+    }
+    return {
+        dotClass: 'bg-blue-500',
+        label: 'Employe standard',
+    };
+};
+
 const UserDetail = () => {
     const { id } = useParams();
     const [user, setUser] = useState(null);
@@ -55,6 +74,8 @@ const UserDetail = () => {
             </div>
         );
     }
+
+    const roleUi = getRoleUi(user.role);
 
     return (
         <div className="max-w-3xl mx-auto">
@@ -113,8 +134,8 @@ const UserDetail = () => {
                         <div className="sm:col-span-1">
                             <dt className="text-sm font-medium text-slate-500">Role d'administration</dt>
                             <dd className="mt-1 text-sm text-slate-900 bg-slate-50 p-2 rounded border border-slate-100 flex items-center">
-                                <span className={`inline-flex items-center justify-center h-2 w-2 rounded-full mr-2 ${user.role === 'admin' ? 'bg-purple-500' : 'bg-blue-500'}`}></span>
-                                {user.role === 'admin' ? 'Administrateur complet' : 'Employe standard'}
+                                <span className={`inline-flex items-center justify-center h-2 w-2 rounded-full mr-2 ${roleUi.dotClass}`}></span>
+                                {roleUi.label}
                             </dd>
                         </div>
                         <div className="sm:col-span-1">

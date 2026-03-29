@@ -4,6 +4,16 @@ import userService from '../../Services/userService';
 import { getAgencesCachedSafe, getAgenceNameById } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
 
+const getRoleBadge = (role) => {
+    if (role === 'super_admin') {
+        return 'bg-amber-100 text-amber-800 border border-amber-200';
+    }
+    if (role === 'admin') {
+        return 'bg-purple-100 text-purple-800 border border-purple-200';
+    }
+    return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+};
+
 const UsersList = () => {
     const [users, setUsers] = useState([]);
     const [agences, setAgences] = useState([]);
@@ -137,11 +147,7 @@ const UsersList = () => {
                                     {agenceNameMap[Number(user.agence_id)] || getAgenceNameById(agences, user.agence_id)}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                        user.role === 'admin'
-                                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    }`}>
+                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadge(user.role)}`}>
                                         {user.role}
                                     </span>
                                 </td>

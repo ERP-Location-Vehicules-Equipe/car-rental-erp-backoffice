@@ -1,11 +1,11 @@
-﻿import React from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import authService from '../Services/authService';
 
 const MainLayout = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const isAdmin = authService.isAdmin();
+    const canManageUsers = authService.canManageUsers();
 
     const handleLogout = () => {
         authService.logout();
@@ -18,7 +18,8 @@ const MainLayout = () => {
         { name: 'Profil', path: '/profile' },
     ];
 
-    if (isAdmin) {
+    // Le menu utilisateurs est visible pour admin et super_admin.
+    if (canManageUsers) {
         menuItems.splice(2, 0, { name: 'Utilisateurs', path: '/users' });
     }
 

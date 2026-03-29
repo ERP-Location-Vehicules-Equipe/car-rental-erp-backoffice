@@ -1,6 +1,6 @@
 # Agence Service - Documentation complete (FR)
 
-Ce microservice gere les agences du reseau (creation, lecture, mise a jour, statut actif/inactif, suppression logique) avec controle JWT et role admin.
+Ce microservice gere les agences du reseau (creation, lecture, mise a jour, statut actif/inactif, suppression logique) avec controle JWT et role super admin pour les operations critiques.
 
 ## 1) Stack et structure
 
@@ -107,11 +107,11 @@ Toutes les routes utilisent `verifyToken`.
 - Si header absent: `401 { "message": "No token provided" }`
 - Si token invalide/expire: `401 { "message": "Invalid or expired token" }`
 
-### Role admin
+### Role super admin
 
-Les routes d'ecriture utilisent `isAdmin`.
+Les routes d'ecriture et d'historique utilisent `isSuperAdmin`.
 
-- Si role different de `admin`: `403 { "message": "Access denied (admin only)" }`
+- Si role different de `super_admin`: `403 { "message": "Access denied (super admin only)" }`
 
 ## 6) Modele Agence (table `agences`)
 
@@ -142,17 +142,21 @@ http://localhost:8002/api/agences
 
 | Methode | Route | Acces | Description |
 |---|---|---|---|
-| `GET` | `/` | user/admin | Lister les agences non supprimees (`deleted_at = null`) |
-| `GET` | `/:id` | user/admin | Recuperer une agence non supprimee par ID |
-| `POST` | `/` | admin | Creer une agence |
-| `PUT` | `/:id` | admin | Mettre a jour une agence non supprimee |
-| `DELETE` | `/:id` | admin | Soft delete (`deleted_at` rempli) |
-| `PATCH` | `/:id/disable` | admin | Mettre `actif = false` |
-| `PATCH` | `/:id/enable` | admin | Mettre `actif = true` |
+| `GET` | `/` | user/admin/super_admin | Lister les agences non supprimees (`deleted_at = null`) |
+| `GET` | `/:id` | user/admin/super_admin | Recuperer une agence non supprimee par ID |
+| `GET` | `/deleted` | super_admin | Lister les agences supprimees (historique) |
+| `POST` | `/` | super_admin | Creer une agence |
+| `PUT` | `/:id` | super_admin | Mettre a jour une agence non supprimee |
+| `DELETE` | `/:id` | super_admin | Soft delete (`deleted_at` rempli) |
+| `PATCH` | `/:id/restore` | super_admin | Restaurer une agence supprimee |
+| `PATCH` | `/:id/disable` | super_admin | Mettre `actif = false` |
+| `PATCH` | `/:id/enable` | super_admin | Mettre `actif = true` |
 
 Important:
 
-- `GET`, `PUT`, `DELETE` filtrent sur `deleted_at = null`.
+- `GET /`, `GET /:id`, `PUT`, `DELETE` filtrent sur `deleted_at = null`.
+- `GET /deleted` retourne uniquement les agences soft-delete, triees par `deleted_at DESC`.
+- `PATCH /restore` ne restaure que les agences soft-delete.
 - `PATCH /disable` et `PATCH /enable` utilisent `findByPk` (pas de filtre `deleted_at`).
 
 ## 8) Exemples de requetes
@@ -163,7 +167,7 @@ Definir un token:
 TOKEN="Bearer <JWT_ICI>"
 ```
 
-### 8.1 Creer une agence (admin)
+### 8.1 Creer une agence (super_admin)
 
 ```bash
 curl -X POST http://localhost:8002/api/agences \
@@ -186,7 +190,7 @@ curl -X GET http://localhost:8002/api/agences/1 \
   -H "Authorization: $TOKEN"
 ```
 
-### 8.4 Mettre a jour (admin)
+### 8.4 Mettre a jour (super_admin)
 
 ```bash
 curl -X PUT http://localhost:8002/api/agences/1 \
@@ -195,24 +199,38 @@ curl -X PUT http://localhost:8002/api/agences/1 \
   -d @tests/json/update-agence.json
 ```
 
-### 8.5 Desactiver (admin)
+### 8.5 Desactiver (super_admin)
 
 ```bash
 curl -X PATCH http://localhost:8002/api/agences/1/disable \
   -H "Authorization: $TOKEN"
 ```
 
-### 8.6 Activer (admin)
+### 8.6 Activer (super_admin)
 
 ```bash
 curl -X PATCH http://localhost:8002/api/agences/1/enable \
   -H "Authorization: $TOKEN"
 ```
 
-### 8.7 Soft delete (admin)
+### 8.7 Soft delete (super_admin)
 
 ```bash
 curl -X DELETE http://localhost:8002/api/agences/1 \
+  -H "Authorization: $TOKEN"
+```
+
+### 8.8 Voir l'historique des suppressions (super_admin)
+
+```bash
+curl -X GET http://localhost:8002/api/agences/deleted \
+  -H "Authorization: $TOKEN"
+```
+
+### 8.9 Restaurer une agence supprimee (super_admin)
+
+```bash
+curl -X PATCH http://localhost:8002/api/agences/1/restore \
   -H "Authorization: $TOKEN"
 ```
 
@@ -220,7 +238,7 @@ curl -X DELETE http://localhost:8002/api/agences/1 \
 
 - `400/500` Sequelize validation/DB error (ex: email invalide, `code` duplique, `email` duplique)
 - `401` token absent/invalide
-- `403` role admin requis
+- `403` role super_admin requis
 - `404` agence introuvable
 
 Format d'erreur standard:

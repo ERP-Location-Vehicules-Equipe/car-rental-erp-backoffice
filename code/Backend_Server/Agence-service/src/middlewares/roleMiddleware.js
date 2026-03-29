@@ -1,8 +1,8 @@
-export const isAdmin = (req, res, next) => {
-
-  if (!req.user || req.user.role !== "admin") {
+export const isSuperAdmin = (req, res, next) => {
+  // Seul le super admin peut gérer les données d'agence.
+  if (!req.user || req.user.role !== "super_admin") {
     return res.status(403).json({
-      message: "Access denied (admin only)"
+      message: "Access denied (super admin only)",
     });
   }
 

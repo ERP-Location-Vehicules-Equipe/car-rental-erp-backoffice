@@ -117,7 +117,7 @@ describe("Agence API - integration tests (real JWT + real DB)", () => {
     await sequelize.sync({ force: true });
 
     token = `Bearer ${jwt.sign(
-      { user_id: 1, email: "integration@erp.com", role: "admin" },
+      { user_id: 1, email: "integration@erp.com", role: "super_admin" },
       TEST_SECRET,
       { expiresIn: "1h" }
     )}`;
