@@ -9,4 +9,4 @@ async def handle_email(notification: dict):
     subject, body = get_content(notification)
 
     from app.services.email.email_service import send_email
-    await send_email(notification["client_email"], subject, body)
+    await send_email(notification["user_email"], subject, body)

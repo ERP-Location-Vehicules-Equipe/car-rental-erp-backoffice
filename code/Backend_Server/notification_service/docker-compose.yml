@@ -14,10 +14,6 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-      mailhog:
-        condition: service_started
-
-
 
   # 2. RabbitMQ
   rabbitmq:
@@ -38,14 +34,6 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
     restart: always
 
-  # 3. MailHog
-  mailhog:
-    image: mailhog/mailhog
-    container_name: mailhog
-    ports:
-      - "1025:1025" # SMTP server (for your app to send to)
-      - "8025:8025" # Web UI (to view emails in browser)
-    restart: always
 
   worker:
     build: .
@@ -53,8 +41,6 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-      mailhog:
-        condition: service_started
     env_file:
       - .env
 
