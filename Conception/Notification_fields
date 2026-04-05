@@ -1,0 +1,20 @@
+# Required Fields by Notification Type
+
+General Type       | Request Type           | Required Fields
+------------------ | -------------------- | ---------------------------------------
+Loan / Rental      | created (new loan)     | loan_id, client_name, car_name, due_date
+                   | updated (loan update)  | loan_id, car_name
+                   | canceled (loan cancel) | loan_id, car_name, client_name
+                   | returned (car returned)| loan_id, car_name, client_name
+                   | overdue (late return)  | loan_id, car_name, client_name, due_date
+
+Transfer           | transfer_created       | car_name, source_agency, destination_agency, depart_date
+                   | transfer_arrived       | car_name, destination_agency
+
+Maintenance        | maintenance_due        | car_name, maintenance_type, due_date
+                   | maintenance_completed  | car_name, maintenance_type
+
+Payment / Invoice  | payment_received       | amount, client_name, payment_method
+                   | invoice_created        | invoice_id, client_name, amount
+
+Generic / Fallback | generic                | message
