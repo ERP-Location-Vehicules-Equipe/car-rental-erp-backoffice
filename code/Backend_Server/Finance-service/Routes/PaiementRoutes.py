@@ -1,0 +1,35 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from config.database import get_db
+from Controller.PaiementController import (
+    create_paiement, get_all_paiements,
+    get_paiement_by_id, get_paiements_by_facture, delete_paiement
+)
+from Schemas.FinanceSchemas import (
+    CreatePaiementSchema, PaiementResponseSchema, PaiementListResponseSchema
+)
+
+from dependencies.FinanceDependencies import get_current_user, admin_required, employee_required
+
+router = APIRouter(prefix="/paiements", tags=["Paiements"])
+
+@router.post("/", response_model=PaiementResponseSchema)
+def create(data: CreatePaiementSchema, db: Session = Depends(get_db), user=Depends(employee_required)):
+    return create_paiement(data, db)
+
+@router.get("/", response_model=PaiementListResponseSchema)
+def get_all(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return {"paiements": get_all_paiements(db, user)}
+
+@router.get("/facture/{facture_id}", response_model=PaiementListResponseSchema)
+def get_by_facture(facture_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return {"paiements": get_paiements_by_facture(facture_id, db)}
+
+@router.get("/{paiement_id}", response_model=PaiementResponseSchema)
+def get_one(paiement_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return get_paiement_by_id(paiement_id, db)
+
+@router.delete("/{paiement_id}")
+def delete(paiement_id: int, db: Session = Depends(get_db), admin=Depends(admin_required)):
+    return delete_paiement(paiement_id, db)
