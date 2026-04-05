@@ -4,6 +4,8 @@ def get_content(notification: Dict[str, Any]) -> tuple:
     """Generate short popup title and message for employees"""
 
     notification_type = notification.get("type")
+    maintenance_due_date = notification.get("maintenance_due_date", "")
+
 
     client_name = notification.get("client_name", "Client")
     user_name = notification.get("user_name", "Agent")
@@ -48,6 +50,12 @@ def get_content(notification: Dict[str, Any]) -> tuple:
         message = (
             f"{car_name} (ID: {car_id}) transfer cancelled "
             f"({source_agency} → {destination_agency})"
+        )
+
+    elif notification_type == "maintenance_due":
+        title = "Maintenance du"
+        message = (
+            f"{car_name} (ID: {car_id}) need Mainenance by {maintenance_due_date} "
         )
 
     # ---- DEFAULT ----

@@ -3,6 +3,8 @@ async def handle_email(notification: dict):
 
     if "transfer" in notif_type:
         from .transfer import get_content
+    elif "maintenance" in notif_type:
+        from .maintenance import get_content
     else:
         from .loan import get_content
 

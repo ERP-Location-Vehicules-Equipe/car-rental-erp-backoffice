@@ -23,3 +23,9 @@ class NotificationRequest(BaseModel):
     user_name: Optional[str] = None
     status: Optional[str] = None
     car_name: Optional[str] = None
+
+
+    #maintenance
+    maintenance_due_date: Optional[str] = None
+
+
