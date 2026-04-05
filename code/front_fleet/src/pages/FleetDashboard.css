@@ -1,0 +1,243 @@
+.dashboard-page {
+  position: relative;
+  padding: 32px;
+  display: grid;
+  gap: 24px;
+}
+
+.dashboard-page::before,
+.dashboard-page::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.dashboard-page::before {
+  width: 320px;
+  height: 320px;
+  top: 32px;
+  right: 40px;
+  background: rgba(13, 92, 232, 0.18);
+}
+
+.dashboard-page::after {
+  width: 280px;
+  height: 280px;
+  left: -40px;
+  bottom: 120px;
+  background: rgba(242, 139, 36, 0.16);
+}
+
+.dashboard-hero,
+.dashboard-card {
+  position: relative;
+  z-index: 1;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(138, 162, 198, 0.2);
+  box-shadow: 0 24px 80px rgba(17, 38, 78, 0.1);
+  backdrop-filter: blur(18px);
+}
+
+.dashboard-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  gap: 22px;
+  padding: 30px;
+}
+
+.dashboard-copy,
+.dashboard-side {
+  display: grid;
+  gap: 16px;
+}
+
+.dashboard-eyebrow {
+  width: fit-content;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(13, 92, 232, 0.12), rgba(242, 139, 36, 0.16));
+  color: #0d4fd6;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-hero h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 4vw, 4.4rem);
+  line-height: 0.95;
+}
+
+.dashboard-hero p {
+  color: #4a6286;
+  max-width: 62ch;
+}
+
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dashboard-primary,
+.dashboard-secondary,
+.dashboard-card {
+  text-decoration: none;
+}
+
+.dashboard-primary,
+.dashboard-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-weight: 700;
+}
+
+.dashboard-primary {
+  color: #fff;
+  background: linear-gradient(135deg, #0d5ce8, #1481ff 55%, #ff8a00 100%);
+  box-shadow: 0 18px 28px rgba(19, 92, 232, 0.22);
+}
+
+.dashboard-secondary {
+  color: #173257;
+  background: #edf4ff;
+}
+
+.dashboard-highlight {
+  border-radius: 24px;
+  padding: 22px;
+  color: #fff;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.24), transparent 30%),
+    linear-gradient(135deg, #081e4b 0%, #0d5ce8 50%, #0b7a63 100%);
+}
+
+.dashboard-highlight span,
+.dashboard-highlight strong,
+.dashboard-highlight p {
+  display: block;
+}
+
+.dashboard-highlight span {
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+}
+
+.dashboard-highlight strong {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.dashboard-highlight p {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-metric-card {
+  padding: 18px;
+  border-radius: 22px;
+  background: #f6f9ff;
+  color: #24446d;
+}
+
+.dashboard-metric-card span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6d84a7;
+}
+
+.dashboard-metric-card strong {
+  font-size: 1.5rem;
+}
+
+.dashboard-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.dashboard-card {
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+  color: #173257;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 80px rgba(17, 38, 78, 0.14);
+}
+
+.dashboard-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-card-label {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6d84a7;
+}
+
+.dashboard-card-arrow {
+  color: #0d5ce8;
+  font-weight: 800;
+}
+
+.dashboard-card strong {
+  font-size: 1.45rem;
+}
+
+.dashboard-card p {
+  color: #5c7496;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-hero,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-page {
+    padding: 18px;
+  }
+
+  .dashboard-hero,
+  .dashboard-card {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .dashboard-metrics {
+    grid-template-columns: 1fr;
+  }
+}

@@ -40,6 +40,19 @@ services:
     environment:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/auth_db
 
+  fleet_service:
+    build: ./fleet-service
+    container_name: fleet_microservice
+    restart: always
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/fleet_db
+
+ 
+
 volumes:
   postgres_data:
   pgadmin_data:
