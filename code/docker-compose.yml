@@ -1,6 +1,18 @@
 version: "3.9"
 
 services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: erp_rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: erp_user
+      RABBITMQ_DEFAULT_PASS: erp_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
 
   postgres_db:
     image: postgres:15
@@ -37,8 +49,10 @@ services:
       - "8000:8000"
     depends_on:
       - postgres_db
+      - rabbitmq
     environment:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/auth_db
+      RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
 
   agence_service:
     build: ./Backend_Server/Agence-service
@@ -48,8 +62,10 @@ services:
       - "8002:8002"
     depends_on:
       - postgres_db
+      - rabbitmq
     environment:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/agence_db
+      RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
 
   gateway_service:
     build: ./Backend_Server/Gateway-service
@@ -60,10 +76,12 @@ services:
     depends_on:
       - auth_service
       - agence_service
+      - rabbitmq
     environment:
       PORT: 8001
       AUTH_SERVICE_URL: http://auth_service:8000
       AGENCE_SERVICE_URL: http://agence_service:8002
+      RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
 
   frontend_app:
     build: ./Frontend
@@ -81,3 +99,5 @@ volumes:
     name: backend_server_postgres_data
   pgadmin_data:
     name: backend_server_pgadmin_data
+  rabbitmq_data:
+    name: backend_server_rabbitmq_data
