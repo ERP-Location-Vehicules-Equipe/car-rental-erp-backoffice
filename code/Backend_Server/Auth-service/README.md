@@ -1,92 +1,162 @@
-﻿# Auth Service - ERP Location de Voitures
+# Auth Service - ERP Location de Voitures
 
-## 1. Presentation du service
+## 1) Presentation
 
-Le `Auth Service` est le microservice responsable de l'identite et de la securite dans l'architecture ERP de location de voitures.
+Le `Auth Service` est le microservice responsable de:
 
-Son role est central: il permet de gerer l'acces aux autres microservices en emettant et validant des tokens JWT.
-
-Ce service prend en charge:
-
-- l'authentification des utilisateurs
+- l'authentification (login + JWT)
 - la gestion des utilisateurs
-- la gestion des roles
-- la creation et le renouvellement des tokens JWT
-- la protection des routes securisees
+- la gestion des roles (`employe`, `admin`, `super_admin`)
+- la securisation des routes via Bearer token
 
-## 2. Technologies utilisees
+Il fonctionne avec FastAPI + SQLAlchemy + PostgreSQL.
 
-| Technologie | Role |
+---
+
+## 2) Stack technique
+
+| Technologie | Usage |
 | --- | --- |
-| FastAPI | Framework API REST |
-| PostgreSQL | Base de donnees relationnelle |
-| SQLAlchemy | ORM pour l'acces aux donnees |
-| JWT (python-jose) | Authentification stateless par token |
-| Docker | Conteneurisation du service |
-| Pydantic | Validation des schemas d'entree/sortie |
-| Uvicorn | Serveur ASGI pour executer FastAPI |
+| FastAPI | API REST |
+| SQLAlchemy | ORM |
+| PostgreSQL | Base de donnees |
+| python-jose | JWT |
+| passlib (bcrypt) | Hash mots de passe |
+| Pydantic | Validation des schemas |
+| pytest | Tests automatises |
 
-## 3. Architecture du projet
+---
+
+## 3) Structure projet
 
 ```text
-Auth-service
-|
-|- config
-|- Controller
-|- dependencies
-|- Model
-|- Routes
-|- Schemas
+Auth-service/
+|- config/
+|- Controller/
+|- dependencies/
+|- Model/
+|- Routes/
+|- Schemas/
+|- tests/
 |- main.py
-|- Dockerfile
-`- docker-compose.yml
+|- requirements.txt
+`- README.md
 ```
 
-Description des dossiers/fichiers:
+---
 
-| Element | Description |
-| --- | --- |
-| `config/` | Configuration base de donnees (`engine`, `SessionLocal`, `Base`) |
-| `Controller/` | Logique metier (authentification, utilisateurs, reset password, soft delete) |
-| `dependencies/` | Fonctions de securite (hash password, JWT, guards auth/role) |
-| `Model/` | Modeles SQLAlchemy |
-| `Routes/` | Endpoints API (`/auth`, `/utilisateurs`) |
-| `Schemas/` | Schemas Pydantic de validation |
-| `main.py` | Point d'entree FastAPI |
-| `Dockerfile` | Build de l'image Docker du service |
-| `docker-compose.yml` | Orchestration Docker (dans ce repo, situe a la racine `Backend_Server`) |
+## 4) Roles et regles metier
 
-## 4. Description des fonctionnalites
+### Roles disponibles
 
-Fonctionnalites implementees:
+- `employe`
+- `admin`
+- `super_admin`
 
-- `Register`
-- `Login`
-- `JWT Access Token`
-- `Refresh Token`
-- `Reset Password`
-- `User Management`
-- `Role Authorization`
-- `Soft Delete`
-- `Enable / Disable User`
+### Regles principales
 
-## 5. Documentation complete de l'API
+1. `super_admin` est unique dans l'application (un seul compte actif).
+2. `admin` peut creer uniquement des `employe` dans sa propre agence.
+3. `admin` peut gerer uniquement les employes de sa propre agence.
+4. `admin` ne peut pas creer/modifier des admins.
+5. `super_admin` peut creer des `admin` et `employe` (toutes agences).
+6. `super_admin` peut gerer `admin` + `employe` via routes utilisateurs.
+7. `super_admin` ne peut pas attribuer le role `super_admin` depuis `PUT /api/utilisateurs/{id}`.
 
-Base URL locale:
+---
+
+## 5) Variables d'environnement
+
+Exemple `.env`:
+
+```env
+DATABASE_URL=postgresql://erp_user:erp_password@postgres_db:5432/auth_db
+SECRET_KEY=super_secret_key_123456
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_HOURS=24
+REFRESH_TOKEN_EXPIRE_DAYS=7
+ENV=docker
+```
+
+---
+
+## 6) URL de base
+
+En docker-compose actuel:
 
 ```text
 http://localhost:8000
 ```
 
-### AUTH ROUTES
+---
 
-#### POST `/api/auth/register`
+## 7) Auth & Authorization
 
-- Methode HTTP: `POST`
-- Endpoint: `/api/auth/register`
-- Description: inscrire un utilisateur standard
+### JWT
 
-Request JSON example:
+Routes protegees: `Authorization: Bearer <token>`
+
+Erreurs typiques:
+
+- `401 Invalid token`
+- `401 User not found`
+- `403 Admin or super admin access required`
+- `403 Super admin access required`
+
+### Guards utilises
+
+- `get_current_user`: utilisateur authentifie
+- `admin_or_super_admin_required`: admin ou super_admin
+- `super_admin_required`: super_admin uniquement
+
+---
+
+## 8) Routes API
+
+### 8.1 Auth routes
+
+| Methode | Route | Acces | Description |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/register` | Public | Inscrire un utilisateur standard (`role=employe`) |
+| `POST` | `/api/auth/login` | Public | Login + generation access/refresh token |
+| `POST` | `/api/auth/refresh` | Public | Regenerer un access token |
+| `POST` | `/api/auth/create-user` | Admin + Super Admin | Creer un user avec role explicite selon policy |
+| `POST` | `/api/auth/reset-password` | Public | Reinitialiser mot de passe via email |
+
+### 8.2 User routes
+
+| Methode | Route | Acces | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/utilisateurs/profile` | Authentifie | Lire son profil |
+| `PUT` | `/api/utilisateurs/profile` | Authentifie | Modifier son profil |
+| `GET` | `/api/utilisateurs/` | Admin + Super Admin | Lister users selon scope role |
+| `GET` | `/api/utilisateurs/{id}` | Admin + Super Admin | Detail user selon scope role |
+| `PUT` | `/api/utilisateurs/{id}` | Admin + Super Admin | Modifier user selon scope role |
+| `DELETE` | `/api/utilisateurs/{id}` | Admin + Super Admin | Soft delete user selon scope role |
+| `PATCH` | `/api/utilisateurs/{id}/disable` | Admin + Super Admin | Desactiver user selon scope role |
+| `PATCH` | `/api/utilisateurs/{id}/enable` | Admin + Super Admin | Activer user selon scope role |
+
+---
+
+## 9) Scope detaille par role (routes utilisateurs)
+
+### Admin
+
+- peut voir/gerer uniquement `employe` de sa propre agence
+- ne peut pas gerer `admin`
+- ne peut pas changer `role` ou `agence_id` d'un utilisateur
+
+### Super Admin
+
+- peut voir/gerer `admin` + `employe` sur toutes les agences
+- peut changer `role` (admin/employe) et `agence_id`
+- ne peut pas assigner `super_admin` via route update user
+
+---
+
+## 10) Exemples JSON
+
+### Register
 
 ```json
 {
@@ -97,22 +167,7 @@ Request JSON example:
 }
 ```
 
-Response JSON example (200):
-
-```json
-{
-  "message": "User created",
-  "user": "ahmed.benali@erp.com"
-}
-```
-
-#### POST `/api/auth/login`
-
-- Methode HTTP: `POST`
-- Endpoint: `/api/auth/login`
-- Description: authentifier un utilisateur et retourner les tokens JWT
-
-Request JSON example:
+### Login
 
 ```json
 {
@@ -121,60 +176,7 @@ Request JSON example:
 }
 ```
 
-Response JSON example (200):
-
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9....",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...."
-}
-```
-
-Response JSON example (401):
-
-```json
-{
-  "detail": "Invalid credentials"
-}
-```
-
-#### POST `/api/auth/refresh`
-
-- Methode HTTP: `POST`
-- Endpoint: `/api/auth/refresh`
-- Description: generer un nouvel access token a partir d'un refresh token
-
-Request JSON example:
-
-```json
-{
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...."
-}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...."
-}
-```
-
-Response JSON example (401):
-
-```json
-{
-  "detail": "Invalid refresh token"
-}
-```
-
-#### POST `/api/auth/create-user`
-
-- Methode HTTP: `POST`
-- Endpoint: `/api/auth/create-user`
-- Description: creer un utilisateur avec role explicite
-
-Request JSON example:
+### Create user (super_admin -> admin)
 
 ```json
 {
@@ -182,451 +184,112 @@ Request JSON example:
   "email": "sara.admin@erp.com",
   "password": "AdminPass123!",
   "role": "admin",
-  "agence_id": 1,
-  "actif": true
-}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "message": "User created successfully",
-  "user_id": 12,
-  "email": "sara.admin@erp.com",
-  "role": "admin"
-}
-```
-
-#### POST `/api/auth/reset-password`
-
-- Methode HTTP: `POST`
-- Endpoint: `/api/auth/reset-password`
-- Description: reinitialiser le mot de passe d'un utilisateur via email
-
-Request JSON example:
-
-```json
-{
-  "email": "ahmed.benali@erp.com",
-  "new_password": "NewStrongPass456!"
-}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "message": "Password updated successfully"
-}
-```
-
-Response JSON example (404):
-
-```json
-{
-  "detail": "User not found"
-}
-```
-
-### USER MANAGEMENT
-
-#### GET `/api/utilisateurs/profile`
-
-- Methode HTTP: `GET`
-- Endpoint: `/api/utilisateurs/profile`
-- Description: recuperer le profil de l'utilisateur connecte
-- Securite: token `Bearer` requis
-
-Request JSON example:
-
-```json
-{}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "id": 1,
-  "nom": "Ahmed Benali",
-  "email": "ahmed.benali@erp.com",
-  "role": "employe",
-  "agence_id": 1,
-  "actif": true
-}
-```
-
-#### GET `/api/utilisateurs`
-
-- Methode HTTP: `GET`
-- Endpoint: `/api/utilisateurs`
-- Description: lister les utilisateurs actifs (non soft-delete)
-- Securite: acces admin requis
-
-Request JSON example:
-
-```json
-{}
-```
-
-Response JSON example (200):
-
-```json
-[
-  {
-    "id": 1,
-    "nom": "Ahmed Benali",
-    "email": "ahmed.benali@erp.com",
-    "role": "employe",
-    "agence_id": 1,
-    "actif": true
-  },
-  {
-    "id": 2,
-    "nom": "Sara Admin",
-    "email": "sara.admin@erp.com",
-    "role": "admin",
-    "agence_id": 1,
-    "actif": true
-  }
-]
-```
-
-#### GET `/api/utilisateurs/{id}`
-
-- Methode HTTP: `GET`
-- Endpoint: `/api/utilisateurs/{id}`
-- Description: recuperer un utilisateur par ID
-- Securite: acces admin requis
-
-Request JSON example:
-
-```json
-{
-  "id": 2
-}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "id": 2,
-  "nom": "Sara Admin",
-  "email": "sara.admin@erp.com",
-  "role": "admin",
-  "agence_id": 1,
-  "actif": true
-}
-```
-
-#### PUT `/api/utilisateurs/{id}`
-
-- Methode HTTP: `PUT`
-- Endpoint: `/api/utilisateurs/{id}`
-- Description: mettre a jour un utilisateur
-- Securite: acces admin requis
-
-Request JSON example:
-
-```json
-{
-  "nom": "Ahmed Benali Updated",
-  "email": "ahmed.updated@erp.com",
-  "role": "employe",
   "agence_id": 2,
   "actif": true
 }
 ```
 
-Response JSON example (200):
+### Create user (admin -> employe meme agence)
 
 ```json
 {
-  "id": 1,
-  "nom": "Ahmed Benali Updated",
-  "email": "ahmed.updated@erp.com",
-  "role": "employe",
-  "agence_id": 2,
-  "actif": true
-}
-```
-
-#### DELETE `/api/utilisateurs/{id}`
-
-- Methode HTTP: `DELETE`
-- Endpoint: `/api/utilisateurs/{id}`
-- Description: soft delete d'un utilisateur
-- Securite: acces admin requis
-
-Request JSON example:
-
-```json
-{
-  "id": 3
-}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "message": "User deleted successfully"
-}
-```
-
-#### PATCH `/api/utilisateurs/{id}/disable`
-
-- Methode HTTP: `PATCH`
-- Endpoint: `/api/utilisateurs/{id}/disable`
-- Description: desactiver un utilisateur
-- Securite: acces admin requis
-
-Request JSON example:
-
-```json
-{
-  "id": 4
-}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "id": 4,
-  "nom": "Utilisateur Test",
-  "email": "test.user@erp.com",
-  "role": "employe",
-  "agence_id": 1,
-  "actif": false
-}
-```
-
-#### PATCH `/api/utilisateurs/{id}/enable`
-
-- Methode HTTP: `PATCH`
-- Endpoint: `/api/utilisateurs/{id}/enable`
-- Description: activer un utilisateur
-- Securite: acces admin requis
-
-Request JSON example:
-
-```json
-{
-  "id": 4
-}
-```
-
-Response JSON example (200):
-
-```json
-{
-  "id": 4,
-  "nom": "Utilisateur Test",
-  "email": "test.user@erp.com",
+  "nom": "Employe Agence 1",
+  "email": "employee.a1@erp.com",
+  "password": "EmployeePass123!",
   "role": "employe",
   "agence_id": 1,
   "actif": true
 }
 ```
 
-## 6. JSON examples pour tester l'API
-
-### Register
+### Update user (super_admin)
 
 ```json
 {
-  "nom": "Yassine Ait",
-  "email": "yassine.ait@erp.com",
-  "password": "Password123!",
-  "agence_id": 1
-}
-```
-
-### Login
-
-```json
-{
-  "email": "yassine.ait@erp.com",
-  "password": "Password123!"
-}
-```
-
-### Refresh token
-
-```json
-{
-  "refresh_token": "VOTRE_REFRESH_TOKEN"
-}
-```
-
-### Create user
-
-```json
-{
-  "nom": "Nadia Manager",
-  "email": "nadia.manager@erp.com",
-  "password": "ManagerPass123!",
-  "role": "admin",
-  "agence_id": 2,
-  "actif": true
-}
-```
-
-### Reset password
-
-```json
-{
-  "email": "nadia.manager@erp.com",
-  "new_password": "NewManagerPass456!"
-}
-```
-
-### Update user
-
-```json
-{
-  "nom": "Nadia Manager Updated",
-  "email": "nadia.updated@erp.com",
+  "nom": "User Updated",
+  "email": "user.updated@erp.com",
   "role": "admin",
   "agence_id": 3,
   "actif": true
 }
 ```
 
-## 7. Headers pour les routes securisees
+### Update my profile
 
-Pour les routes protegees, utiliser:
-
-```http
-Authorization: Bearer TOKEN
+```json
+{
+  "nom": "Ahmed Profile Update",
+  "email": "ahmed.profile@erp.com"
+}
 ```
 
-Exemple:
+---
 
-```http
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9....
+## 11) Erreurs metier importantes
+
+### Creation user
+
+- `400 Email already exists`
+- `400 Only one super admin is allowed`
+- `403 Admin can only create employe users`
+- `403 Admin can only create users in their own agence`
+
+### Gestion user
+
+- `403 Not enough permissions to manage this user`
+- `403 Admin cannot change user role`
+- `403 Admin cannot change user agence`
+- `403 Cannot assign super admin role from this route`
+- `404 User not found`
+
+---
+
+## 12) Lancement
+
+### Local
+
+```bash
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
 ```
 
-## 8. Comment lancer le service
-
-### Option 1 - Docker
-
-Depuis la racine `Backend_Server`:
+### Docker (depuis `code/`)
 
 ```bash
 docker compose up --build
 ```
 
-### Option 2 - Local (Uvicorn)
+---
+
+## 13) Tests
 
 Depuis `Auth-service`:
-
-```bash
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-Service accessible sur:
-
-```text
-http://localhost:8000
-```
-
-## 9. Test avec Swagger
-
-Swagger UI est disponible sur:
-
-```text
-/docs
-```
-
-URL complete en local:
-
-```text
-http://localhost:8000/docs
-```
-
-## 10. Tests automatises (pytest)
-
-Le projet contient une suite de tests automatises dans le dossier `tests/`.
-Elle couvre les routes `AUTH` et `USER MANAGEMENT` avec des cas de succes et des cas d'erreur.
-
-### 10.1 Structure des tests
-
-```text
-tests/
-|- conftest.py
-|- test_auth_register.py
-|- test_auth_login.py
-|- test_auth_refresh.py
-|- test_auth_reset_password.py
-|- test_user_profile.py
-|- test_user_management.py
-`- json/
-```
-
-### 10.2 Role de chaque fichier
-
-| Fichier | Ce qu'il teste |
-| --- | --- |
-| `tests/conftest.py` | Configuration globale pytest: base de test SQLite, `TestClient`, fixtures utilisateurs, fixtures tokens JWT, loader de payloads JSON |
-| `tests/test_auth_register.py` | `POST /api/auth/register` et `POST /api/auth/create-user` (succes + erreurs de validation) |
-| `tests/test_auth_login.py` | `POST /api/auth/login` (succes, mot de passe invalide, utilisateur introuvable) |
-| `tests/test_auth_refresh.py` | `POST /api/auth/refresh` (refresh token valide / invalide) |
-| `tests/test_auth_reset_password.py` | `POST /api/auth/reset-password` (succes + utilisateur introuvable) et verification du login apres reset |
-| `tests/test_user_profile.py` | `GET /api/utilisateurs/profile` (avec token, sans token, token invalide) |
-| `tests/test_user_management.py` | routes admin: list users, get by id, update, disable, enable, soft delete, controle d'acces non-admin |
-| `tests/json/*.json` | payloads de test reutilisables pour les requetes API |
-
-### 10.3 Comment lancer les tests
-
-Depuis la racine `Backend_Server` (comme dans ton terminal):
-
-```bash
-pytest -q Auth-service/tests
-```
-
-Depuis le dossier `Auth-service`:
 
 ```bash
 pytest -q
 ```
 
-Lancer un seul fichier:
+Exemples ciblage:
 
 ```bash
-pytest -q tests/test_auth_login.py
+pytest -q tests/test_auth_extended.py
+pytest -q tests/test_user_management.py
+pytest -q tests/test_user_management_edge_cases.py
 ```
 
-Lancer un seul test:
+Ces tests couvrent notamment:
 
-```bash
-pytest -q tests/test_auth_login.py::test_login_user_success
-```
+- policy admin vs super_admin
+- scope par agence
+- unicite super_admin
+- protections routes de gestion
 
-### 10.4 Resultat attendu
+---
 
-Si tout est correct, tu dois voir un resume comme:
+## 14) Swagger
+
+Documentation interactive:
 
 ```text
-21 passed
+http://localhost:8000/docs
 ```
-
-Des `warnings` peuvent apparaitre, mais tant que tu n'as pas de `FAILED`, la suite de tests est valide.
-
-## 11. Conclusion
-
-Le `Auth Service` est un composant cle du systeme ERP.
-Il centralise l'authentification, les roles et la securite des acces.
-
-Il peut etre integre directement avec:
-
-- Agence Service
-- Fleet Service
-- Location Service
-- Notification Service
-
-Cette approche facilite la construction d'une architecture microservices robuste, securisee et evolutive.
