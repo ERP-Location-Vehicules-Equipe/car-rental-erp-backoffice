@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { getVehicles } from '../api/vehicleApi'
 import {
-  getVehicleMaintenances,
-  createMaintenanceRecord,
-  updateMaintenanceRecord,
-  deleteMaintenanceRecord,
-} from '../api/maintenanceApi'
+  getEntretiens,
+  createEntretienRecord,
+  updateEntretienRecord,
+  deleteEntretienRecord,
+} from '../api/entretienApi'
 import './Maintenance.css'
 
 const initialForm = {
   vehicle_id: '',
-  type_maintenance: 'preventive',
+  type_entretien: 'preventive',
   description: '',
   date_debut: '',
   date_fin: '',
@@ -19,12 +19,12 @@ const initialForm = {
   statut: 'planifiee',
 }
 
-const maintenanceTypeOptions = [
+const entretienTypeOptions = [
   { value: 'preventive', label: 'Preventive' },
   { value: 'corrective', label: 'Corrective' },
 ]
 
-const maintenanceStatusOptions = [
+const entretienStatusOptions = [
   { value: 'planifiee', label: 'Planifiee' },
   { value: 'en_cours', label: 'En cours' },
   { value: 'terminee', label: 'Terminee' },
@@ -32,16 +32,16 @@ const maintenanceStatusOptions = [
 ]
 
 const statCards = [
-  ['total', 'Interventions', 'Toutes les maintenances consolidees depuis la flotte'],
-  ['open', 'Actives', 'Planifiees ou en cours sur les vehicules'],
-  ['completed', 'Terminees', 'Interventions cloturees et archivables'],
+  ['total', 'Entretiens', 'Tous les entretiens consolides depuis fleet-service'],
+  ['open', 'Actifs', 'Planifies ou en cours'],
+  ['completed', 'Termines', 'Entretiens clotures et archivables'],
   ['cost', 'Budget total', 'Somme des couts visibles dans le tableau'],
 ]
 
-const normalizeMaintenance = (record) => ({
+const normalizeEntretien = (record) => ({
   id: record.id ?? '',
   vehicle_id: record.vehicle_id ?? '',
-  type_maintenance: record.type_maintenance ?? 'preventive',
+  type_entretien: record.type_entretien ?? 'preventive',
   description: record.description ?? '',
   date_debut: record.date_debut ?? '',
   date_fin: record.date_fin ?? '',
@@ -89,41 +89,27 @@ const Maintenance = () => {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const loadMaintenanceDashboard = async () => {
+  const loadEntretienDashboard = async () => {
     setLoading(true)
     setError('')
 
     try {
-      const vehicleData = await getVehicles()
-      const normalizedVehicles = Array.isArray(vehicleData) ? vehicleData : []
-      setVehicles(normalizedVehicles)
+      const [entretienData, vehicleData] = await Promise.all([
+        getEntretiens(),
+        getVehicles().catch(() => []),
+      ])
 
-      const maintenanceGroups = await Promise.all(
-        normalizedVehicles.map(async (vehicle) => {
-          try {
-            const data = await getVehicleMaintenances(vehicle.id)
-            return Array.isArray(data) ? data : []
-          } catch {
-            return []
-          }
-        }),
-      )
-
-      const mergedRecords = maintenanceGroups
-        .flat()
-        .map(normalizeMaintenance)
-        .sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut))
-
-      setRecords(mergedRecords)
+      setRecords(Array.isArray(entretienData) ? entretienData.map(normalizeEntretien) : [])
+      setVehicles(Array.isArray(vehicleData) ? vehicleData : [])
     } catch (err) {
-      setError('Erreur de recuperation des maintenances : ' + err.message)
+      setError('Erreur de recuperation des entretiens : ' + err.message)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadMaintenanceDashboard()
+    loadEntretienDashboard()
   }, [])
 
   const clearForm = () => {
@@ -138,7 +124,7 @@ const Maintenance = () => {
   const validateForm = () => {
     if (
       !form.vehicle_id ||
-      !form.type_maintenance ||
+      !form.type_entretien ||
       !form.description.trim() ||
       !form.date_debut ||
       !form.statut
@@ -158,7 +144,8 @@ const Maintenance = () => {
   }
 
   const buildPayload = () => ({
-    type_maintenance: form.type_maintenance,
+    vehicle_id: Number(form.vehicle_id),
+    type_entretien: form.type_entretien,
     description: form.description.trim(),
     date_debut: toIsoString(form.date_debut),
     date_fin: toIsoString(form.date_fin),
@@ -182,14 +169,14 @@ const Maintenance = () => {
       const payload = buildPayload()
 
       if (editId != null) {
-        await updateMaintenanceRecord(editId, payload)
-        setSuccess('Maintenance mise a jour avec succes.')
+        await updateEntretienRecord(editId, payload)
+        setSuccess('Entretien mis a jour avec succes.')
       } else {
-        await createMaintenanceRecord(form.vehicle_id, payload)
-        setSuccess('Maintenance ajoutee avec succes.')
+        await createEntretienRecord(payload)
+        setSuccess('Entretien ajoute avec succes.')
       }
 
-      await loadMaintenanceDashboard()
+      await loadEntretienDashboard()
       clearForm()
     } catch (err) {
       setError("Erreur lors de l'envoi du formulaire : " + err.message)
@@ -202,7 +189,7 @@ const Maintenance = () => {
     setSuccess('')
     setForm({
       vehicle_id: String(record.vehicle_id ?? ''),
-      type_maintenance: record.type_maintenance ?? 'preventive',
+      type_entretien: record.type_entretien ?? 'preventive',
       description: record.description ?? '',
       date_debut: toDateTimeLocalValue(record.date_debut),
       date_fin: toDateTimeLocalValue(record.date_fin),
@@ -213,18 +200,23 @@ const Maintenance = () => {
   }
 
   const handleDelete = async (id) => {
-    const ok = window.confirm('Confirmer la suppression de cette maintenance ?')
+    const ok = window.confirm('Confirmer la suppression de cet entretien ?')
     if (!ok) return
 
     try {
       setError('')
-      await deleteMaintenanceRecord(id)
-      setSuccess('Maintenance supprimee avec succes.')
-      await loadMaintenanceDashboard()
+      await deleteEntretienRecord(id)
+      setSuccess('Entretien supprime avec succes.')
+      await loadEntretienDashboard()
     } catch (err) {
       setError('Erreur de suppression : ' + err.message)
       setSuccess('')
     }
+  }
+
+  const getVehicleLabel = (vehicleId) => {
+    const vehicle = vehicles.find((item) => Number(item.id) === Number(vehicleId))
+    return vehicle ? `#${vehicle.id} - ${vehicle.immatriculation}` : `#${vehicleId}`
   }
 
   const filteredRecords = records.filter((record) => {
@@ -233,7 +225,8 @@ const Maintenance = () => {
     const haystack = [
       record.id,
       record.vehicle_id,
-      record.type_maintenance,
+      getVehicleLabel(record.vehicle_id),
+      record.type_entretien,
       record.description,
       record.prestataire,
       record.statut,
@@ -256,15 +249,15 @@ const Maintenance = () => {
       <div className="maintenance-hero">
         <div className="maintenance-hero-copy">
           <div className="maintenance-eyebrow">Workshop Intelligence</div>
-          <h1>Track every intervention, cost and status shift.</h1>
+          <h1>Track every entretien, cost and status shift.</h1>
           <p>
-            Cette page suit le modele `VehicleMaintenance` du backend avec `vehicle_id`,
-            `type_maintenance`, `description`, `date_debut`, `date_fin`, `cout`,
-            `prestataire` et `statut`, puis consolide les interventions de tous les vehicules.
+            Cette page suit maintenant le modele `VehicleEntretien` du backend avec
+            `vehicle_id` dans le body, `type_entretien`, `description`, `date_debut`,
+            `date_fin`, `cout`, `prestataire` et `statut`.
           </p>
           <div className="maintenance-hero-actions">
             <div className="maintenance-pill">
-              <strong>{stats.total}</strong> maintenances regroupees
+              <strong>{stats.total}</strong> entretiens regroupes
             </div>
             <div className="maintenance-pill">
               Budget suivi <strong>{formatCurrency(stats.cost)}</strong>
@@ -276,18 +269,18 @@ const Maintenance = () => {
           <div className="maintenance-feature-card">
             <strong>CRUD aligne sur les endpoints reels</strong>
             <span>
-              Creation par vehicule, edition par identifiant de maintenance et
-              synchronisation des statuts atelier.
+              Creation directe sur `/entretiens/`, edition et suppression par identifiant,
+              sans obligation de passer par une route imbriquee sous `vehicles`.
             </span>
           </div>
 
           <div className="maintenance-mini-grid">
             <div className="maintenance-mini-card">
-              <span>En cours</span>
+              <span>Actifs</span>
               <strong>{stats.open}</strong>
             </div>
             <div className="maintenance-mini-card">
-              <span>Vehicules lies</span>
+              <span>Vehicules visibles</span>
               <strong>{vehicles.length}</strong>
             </div>
           </div>
@@ -308,10 +301,10 @@ const Maintenance = () => {
         <div className="maintenance-panel">
           <div className="maintenance-panel-header">
             <div className="maintenance-panel-title">
-              <h2>{editId ? 'Modifier une maintenance' : 'Ajouter une maintenance'}</h2>
+              <h2>{editId ? 'Modifier un entretien' : 'Ajouter un entretien'}</h2>
               <p>
-                Formulaire base sur `maintenance.py`. `id` et `created_at`
-                restent automatiques cote backend.
+                Le formulaire suit le backend actuel. `id` et `created_at`
+                restent automatiques cote service.
               </p>
             </div>
             {editId && <div className="maintenance-edit-chip">Edition #{editId}</div>}
@@ -325,31 +318,34 @@ const Maintenance = () => {
           <form className="maintenance-form" onSubmit={handleSubmit}>
             <div className="maintenance-form-grid">
               <div className="maintenance-field">
-                <label htmlFor="vehicle_id">Vehicule</label>
-                <select
+                <label htmlFor="vehicle_id">Vehicule ID</label>
+                <input
                   id="vehicle_id"
+                  type="number"
+                  min="1"
                   value={form.vehicle_id}
                   onChange={(event) => handleFieldChange('vehicle_id', event.target.value)}
-                >
-                  <option value="">Selectionner un vehicule</option>
+                  list="vehicle-suggestions"
+                />
+                <datalist id="vehicle-suggestions">
                   {vehicles.map((vehicle) => (
                     <option key={vehicle.id} value={vehicle.id}>
-                      #{vehicle.id} - {vehicle.immatriculation}
+                      {vehicle.immatriculation}
                     </option>
                   ))}
-                </select>
+                </datalist>
               </div>
 
               <div className="maintenance-field">
-                <label htmlFor="type_maintenance">Type</label>
+                <label htmlFor="type_entretien">Type</label>
                 <select
-                  id="type_maintenance"
-                  value={form.type_maintenance}
+                  id="type_entretien"
+                  value={form.type_entretien}
                   onChange={(event) =>
-                    handleFieldChange('type_maintenance', event.target.value)
+                    handleFieldChange('type_entretien', event.target.value)
                   }
                 >
-                  {maintenanceTypeOptions.map((option) => (
+                  {entretienTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -406,7 +402,7 @@ const Maintenance = () => {
                   value={form.statut}
                   onChange={(event) => handleFieldChange('statut', event.target.value)}
                 >
-                  {maintenanceStatusOptions.map((option) => (
+                  {entretienStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -427,7 +423,7 @@ const Maintenance = () => {
 
             <div className="maintenance-form-actions">
               <button className="maintenance-button maintenance-button-primary" type="submit">
-                {editId ? 'Enregistrer les modifications' : 'Ajouter intervention'}
+                {editId ? 'Enregistrer les modifications' : 'Ajouter entretien'}
               </button>
               <button
                 className="maintenance-button maintenance-button-secondary"
@@ -443,9 +439,9 @@ const Maintenance = () => {
         <div className="maintenance-table-panel">
           <div className="maintenance-table-header">
             <div className="maintenance-table-title">
-              <h2>Tableau des maintenances</h2>
+              <h2>Tableau des entretiens</h2>
               <p>
-                Vue consolidee de toutes les maintenances, avec recherche textuelle et filtre d&apos;etat.
+                Vue consolidee de tous les entretiens, avec recherche textuelle et filtre d&apos;etat.
               </p>
             </div>
           </div>
@@ -463,7 +459,7 @@ const Maintenance = () => {
               <div className="maintenance-filter">
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                   <option value="all">Tous les statuts</option>
-                  {maintenanceStatusOptions.map((option) => (
+                  {entretienStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -475,7 +471,7 @@ const Maintenance = () => {
             <button
               className="maintenance-button maintenance-button-ghost"
               type="button"
-              onClick={loadMaintenanceDashboard}
+              onClick={loadEntretienDashboard}
             >
               Rafraichir
             </button>
@@ -483,9 +479,9 @@ const Maintenance = () => {
 
           <div className="maintenance-table-wrap">
             {loading ? (
-              <div className="maintenance-empty">Chargement des maintenances...</div>
+              <div className="maintenance-empty">Chargement des entretiens...</div>
             ) : filteredRecords.length === 0 ? (
-              <div className="maintenance-empty">Aucune maintenance ne correspond aux filtres.</div>
+              <div className="maintenance-empty">Aucun entretien ne correspond aux filtres.</div>
             ) : (
               <table className="maintenance-table">
                 <thead>
@@ -507,10 +503,10 @@ const Maintenance = () => {
                   {filteredRecords.map((record) => (
                     <tr key={record.id}>
                       <td className="maintenance-id">#{record.id}</td>
-                      <td>#{record.vehicle_id}</td>
+                      <td>{getVehicleLabel(record.vehicle_id)}</td>
                       <td>
-                        {maintenanceTypeOptions.find((item) => item.value === record.type_maintenance)
-                          ?.label || record.type_maintenance}
+                        {entretienTypeOptions.find((item) => item.value === record.type_entretien)
+                          ?.label || record.type_entretien}
                       </td>
                       <td>{record.description}</td>
                       <td>{formatDateTime(record.date_debut)}</td>
@@ -518,7 +514,7 @@ const Maintenance = () => {
                       <td>{record.prestataire || '--'}</td>
                       <td>
                         <span className={`maintenance-status-badge maintenance-status-${record.statut}`}>
-                          {maintenanceStatusOptions.find((item) => item.value === record.statut)?.label ||
+                          {entretienStatusOptions.find((item) => item.value === record.statut)?.label ||
                             record.statut}
                         </span>
                       </td>

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 class VehicleStatus(str, Enum):
     DISPONIBLE = "disponible"
     LOUE = "loue"
-    MAINTENANCE = "maintenance"
+    ENTRETIEN = "entretien"
     HORS_SERVICE = "hors_service"
 
 
@@ -21,6 +21,7 @@ class VehicleBase(BaseModel):
     kilometrage: int
     nombre_places: int
     statut: VehicleStatus
+    photo_url: str | None = None
     prix_location: float
     valeur_achat: float
 
@@ -40,6 +41,7 @@ class VehicleUpdate(BaseModel):
     kilometrage: int | None = None
     nombre_places: int | None = None
     statut: VehicleStatus | None = None
+    photo_url: str | None = None
     prix_location: float | None = None
     valeur_achat: float | None = None
 

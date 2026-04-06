@@ -2,17 +2,18 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from models.maintenance import MaintenanceStatus, MaintenanceType
+from models.entretien import EntretienStatus, EntretienType
 
 
-class MaintenanceBase(BaseModel):
-    type_maintenance: MaintenanceType
+class EntretienBase(BaseModel):
+    vehicle_id: int
+    type_entretien: EntretienType
     description: str
     date_debut: datetime
     date_fin: datetime | None = None
     cout: float = 0.0
     prestataire: str | None = None
-    statut: MaintenanceStatus
+    statut: EntretienStatus
 
     @field_validator("cout")
     @classmethod
@@ -28,18 +29,19 @@ class MaintenanceBase(BaseModel):
         return self
 
 
-class MaintenanceCreate(MaintenanceBase):
+class EntretienCreate(EntretienBase):
     pass
 
 
-class MaintenanceUpdate(BaseModel):
-    type_maintenance: MaintenanceType | None = None
+class EntretienUpdate(BaseModel):
+    vehicle_id: int | None = None
+    type_entretien: EntretienType | None = None
     description: str | None = None
     date_debut: datetime | None = None
     date_fin: datetime | None = None
     cout: float | None = None
     prestataire: str | None = None
-    statut: MaintenanceStatus | None = None
+    statut: EntretienStatus | None = None
 
     @field_validator("cout")
     @classmethod
@@ -49,9 +51,8 @@ class MaintenanceUpdate(BaseModel):
         return value
 
 
-class MaintenanceResponse(MaintenanceBase):
+class EntretienResponse(EntretienBase):
     id: int
-    vehicle_id: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

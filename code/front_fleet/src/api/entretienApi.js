@@ -28,25 +28,27 @@ const request = async (path, options = {}) => {
   return data
 }
 
-export const getVehicleMaintenances = async (vehicleId) =>
-  request(`/vehicles/${vehicleId}/maintenances`)
+export const getEntretiens = async () => request('/entretiens/')
 
-export const getMaintenanceRecord = async (maintenanceId) =>
-  request(`/maintenances/${maintenanceId}`)
+export const getVehicleEntretiens = async (vehicleId) =>
+  request(`/vehicles/${vehicleId}/entretiens`)
 
-export const createMaintenanceRecord = async (vehicleId, maintenanceData) =>
-  request(`/vehicles/${vehicleId}/maintenances`, {
+export const getEntretienRecord = async (entretienId) =>
+  request(`/entretiens/${entretienId}`)
+
+export const createEntretienRecord = async (entretienData) =>
+  request('/entretiens/', {
     method: 'POST',
-    body: JSON.stringify(maintenanceData),
+    body: JSON.stringify(entretienData),
   })
 
-export const updateMaintenanceRecord = async (maintenanceId, maintenanceData) =>
-  request(`/maintenances/${maintenanceId}`, {
+export const updateEntretienRecord = async (entretienId, entretienData) =>
+  request(`/entretiens/${entretienId}`, {
     method: 'PUT',
-    body: JSON.stringify(maintenanceData),
+    body: JSON.stringify(entretienData),
   })
 
-export const deleteMaintenanceRecord = async (maintenanceId) =>
-  request(`/maintenances/${maintenanceId}`, {
+export const deleteEntretienRecord = async (entretienId) =>
+  request(`/entretiens/${entretienId}`, {
     method: 'DELETE',
   })

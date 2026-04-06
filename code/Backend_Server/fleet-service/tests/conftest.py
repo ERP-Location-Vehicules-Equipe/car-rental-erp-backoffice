@@ -10,7 +10,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH.as_posix()}"
 
 from db import Base, SessionLocal, engine  # noqa: E402
 from main import app  # noqa: E402
-from models.maintenance import VehicleMaintenance  # noqa: F401, E402
+from models.entretien import VehicleEntretien  # noqa: F401, E402
 from models.vehicle import Vehicle  # noqa: F401, E402
 
 

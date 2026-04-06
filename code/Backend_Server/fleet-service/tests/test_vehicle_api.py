@@ -31,13 +31,13 @@ def test_update_vehicle_status_endpoint_updates_only_status(client):
 
     response = client.patch(
         f"/vehicles/{vehicle_id}/status",
-        json={"statut": "maintenance"},
+        json={"statut": "entretien"},
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == vehicle_id
-    assert body["statut"] == "maintenance"
+    assert body["statut"] == "entretien"
     assert body["immatriculation"] == "12345-A-6"
 
 
@@ -53,14 +53,14 @@ def test_update_vehicle_with_invalid_status_returns_422(client):
     assert response.status_code == 422
 
 
-def test_delete_vehicle_also_deletes_related_maintenances(client):
+def test_delete_vehicle_also_deletes_related_entretiens(client):
     create_response = client.post("/vehicles/", json=make_vehicle_payload())
     vehicle_id = create_response.json()["id"]
 
-    maintenance_response = client.post(
-        f"/vehicles/{vehicle_id}/maintenances",
+    entretien_response = client.post(
+        f"/vehicles/{vehicle_id}/entretiens",
         json={
-            "type_maintenance": "preventive",
+            "type_entretien": "preventive",
             "description": "Suppression en cascade",
             "date_debut": "2026-03-27T10:00:00",
             "date_fin": "2026-03-27T12:00:00",
@@ -69,10 +69,10 @@ def test_delete_vehicle_also_deletes_related_maintenances(client):
             "statut": "en_cours",
         },
     )
-    maintenance_id = maintenance_response.json()["id"]
+    entretien_id = entretien_response.json()["id"]
 
     response = client.delete(f"/vehicles/{vehicle_id}")
 
     assert response.status_code == 204
     assert client.get(f"/vehicles/{vehicle_id}").status_code == 404
-    assert client.get(f"/maintenances/{maintenance_id}").status_code == 404
+    assert client.get(f"/entretiens/{entretien_id}").status_code == 404

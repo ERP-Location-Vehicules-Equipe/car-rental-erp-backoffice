@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from models.maintenance import VehicleMaintenance
+from models.entretien import VehicleEntretien
 from models.vehicle import Vehicle
 from schemas.vehicle_schema import VehicleCreate, VehicleStatusUpdate, VehicleUpdate
 
@@ -76,11 +76,11 @@ def update_vehicle_status(
 
 
 def delete_vehicle(db: Session, vehicle_id: int):
-    # Delete a vehicle and its dependent maintenances by id.
+    # Delete a vehicle and its dependent entretiens by id.
     vehicle = get_vehicle_or_404(db, vehicle_id)
     (
-        db.query(VehicleMaintenance)
-        .filter(VehicleMaintenance.vehicle_id == vehicle_id)
+        db.query(VehicleEntretien)
+        .filter(VehicleEntretien.vehicle_id == vehicle_id)
         .delete(synchronize_session=False)
     )
     db.delete(vehicle)

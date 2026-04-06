@@ -5,6 +5,7 @@ import {
   updateVehicle,
   deleteVehicle,
 } from '../api/vehicleApi'
+import { getCategories, getMarques, getModeles } from '../api/referenceApi'
 import './Vehicle.css'
 
 const initialForm = {
@@ -16,6 +17,7 @@ const initialForm = {
   kilometrage: '',
   nombre_places: '',
   statut: 'disponible',
+  photo_url: '',
   prix_location: '',
   valeur_achat: '',
 }
@@ -23,14 +25,14 @@ const initialForm = {
 const statusOptions = [
   { value: 'disponible', label: 'Disponible' },
   { value: 'loue', label: 'Loue' },
-  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'entretien', label: 'Entretien' },
   { value: 'hors_service', label: 'Hors service' },
 ]
 
 const statCards = [
   ['total', 'Flotte totale', 'Toutes les fiches recuperees depuis fleet-service'],
   ['disponible', 'Disponibles', 'Vehicules prets pour une nouvelle reservation'],
-  ['maintenance', 'Maintenance', 'Elements qui demandent un suivi atelier'],
+  ['entretien', 'Entretiens', 'Elements qui demandent un suivi atelier'],
   ['value', 'Valeur flotte', "Somme de valeur_achat des lignes visibles"],
 ]
 
@@ -44,6 +46,7 @@ const normalizeVehicle = (vehicle) => ({
   kilometrage: vehicle.kilometrage ?? '',
   nombre_places: vehicle.nombre_places ?? '',
   statut: vehicle.statut ?? 'disponible',
+  photo_url: vehicle.photo_url ?? '',
   prix_location: vehicle.prix_location ?? '',
   valeur_achat: vehicle.valeur_achat ?? '',
   created_at: vehicle.created_at ?? '',
@@ -72,6 +75,9 @@ const formatCurrency = (value) =>
 
 const Vehicle = () => {
   const [vehicles, setVehicles] = useState([])
+  const [categories, setCategories] = useState([])
+  const [marques, setMarques] = useState([])
+  const [modeles, setModeles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -80,22 +86,31 @@ const Vehicle = () => {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const loadVehicles = async () => {
+  const loadPageData = async () => {
     setLoading(true)
     setError('')
 
     try {
-      const data = await getVehicles()
-      setVehicles(Array.isArray(data) ? data.map(normalizeVehicle) : [])
+      const [vehicleData, categoryData, marqueData, modeleData] = await Promise.all([
+        getVehicles(),
+        getCategories(),
+        getMarques(),
+        getModeles(),
+      ])
+
+      setVehicles(Array.isArray(vehicleData) ? vehicleData.map(normalizeVehicle) : [])
+      setCategories(Array.isArray(categoryData) ? categoryData : [])
+      setMarques(Array.isArray(marqueData) ? marqueData : [])
+      setModeles(Array.isArray(modeleData) ? modeleData : [])
     } catch (err) {
-      setError('Erreur de recuperation des vehicules : ' + err.message)
+      setError('Erreur de recuperation des donnees : ' + err.message)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadVehicles()
+    loadPageData()
   }, [])
 
   const clearForm = () => {
@@ -139,6 +154,7 @@ const Vehicle = () => {
     kilometrage: Number(form.kilometrage),
     nombre_places: Number(form.nombre_places),
     statut: form.statut,
+    photo_url: form.photo_url.trim() || null,
     prix_location: Number(form.prix_location),
     valeur_achat: Number(form.valeur_achat),
   })
@@ -165,7 +181,7 @@ const Vehicle = () => {
         setSuccess('Vehicule ajoute avec succes.')
       }
 
-      await loadVehicles()
+      await loadPageData()
       clearForm()
     } catch (err) {
       setError("Erreur lors de l'envoi du formulaire : " + err.message)
@@ -185,6 +201,7 @@ const Vehicle = () => {
       kilometrage: String(vehicle.kilometrage ?? ''),
       nombre_places: String(vehicle.nombre_places ?? ''),
       statut: vehicle.statut ?? 'disponible',
+      photo_url: vehicle.photo_url ?? '',
       prix_location: String(vehicle.prix_location ?? ''),
       valeur_achat: String(vehicle.valeur_achat ?? ''),
     })
@@ -198,11 +215,24 @@ const Vehicle = () => {
       setError('')
       await deleteVehicle(id)
       setSuccess('Vehicule supprime avec succes.')
-      await loadVehicles()
+      await loadPageData()
     } catch (err) {
       setError('Erreur de suppression : ' + err.message)
       setSuccess('')
     }
+  }
+
+  const getCategorieLabel = (categorieId) =>
+    categories.find((item) => Number(item.id) === Number(categorieId))?.libelle || categorieId
+
+  const getMarqueLabel = (marqueId) =>
+    marques.find((item) => Number(item.id) === Number(marqueId))?.nom || marqueId
+
+  const getModeleLabel = (modeleId) => {
+    const modele = modeles.find((item) => Number(item.id) === Number(modeleId))
+    if (!modele) return modeleId
+    const marque = modele.marque_id ? getMarqueLabel(modele.marque_id) : null
+    return marque ? `${modele.nom} (${marque})` : modele.nom
   }
 
   const filteredVehicles = vehicles.filter((vehicle) => {
@@ -211,9 +241,9 @@ const Vehicle = () => {
     const haystack = [
       vehicle.id,
       vehicle.immatriculation,
-      vehicle.modele_id,
-      vehicle.categorie_id,
       vehicle.agence_id,
+      getModeleLabel(vehicle.modele_id),
+      getCategorieLabel(vehicle.categorie_id),
       vehicle.statut,
     ]
       .join(' ')
@@ -225,7 +255,7 @@ const Vehicle = () => {
   const stats = {
     total: vehicles.length,
     disponible: vehicles.filter((vehicle) => vehicle.statut === 'disponible').length,
-    maintenance: vehicles.filter((vehicle) => vehicle.statut === 'maintenance').length,
+    entretien: vehicles.filter((vehicle) => vehicle.statut === 'entretien').length,
     value: vehicles.reduce((sum, vehicle) => sum + Number(vehicle.valeur_achat || 0), 0),
   }
 
@@ -242,11 +272,10 @@ const Vehicle = () => {
       <div className="vehicle-hero">
         <div className="vehicle-hero-copy">
           <div className="vehicle-eyebrow">Fleet Control Center</div>
-          <h1>Vehicles that speak with your backend.</h1>
+          <h1>Vehicles aligned with the new fleet service.</h1>
           <p>
-            Cette page consomme directement `http://localhost:8000/vehicles/` comme indique
-            dans le README du `fleet-service`, avec une experience plus riche pour ajouter,
-            modifier, supprimer, filtrer et suivre l&apos;etat de ta flotte.
+            Cette page consomme le backend via le proxy Vite sur `8001`, avec les nouveaux
+            statuts et les references `categories`, `marques` et `modeles`.
           </p>
           <div className="vehicle-hero-actions">
             <div className="vehicle-pill">
@@ -260,10 +289,10 @@ const Vehicle = () => {
 
         <div className="vehicle-hero-side">
           <div className="vehicle-feature-card">
-            <strong>Formulaire aligne sur le model SQLAlchemy</strong>
+            <strong>Formulaire aligne sur le backend actuel</strong>
             <span>
-              Les champs suivent `VehicleCreate` du backend: ids metier, statut,
-              kilometrage, places, prix et valeur d&apos;achat.
+              Les champs suivent `VehicleCreate` du service fleet, avec statut `entretien`
+              et references chargees en lecture depuis les endpoints metier.
             </span>
           </div>
 
@@ -273,8 +302,8 @@ const Vehicle = () => {
               <strong>{stats.disponible}</strong>
             </div>
             <div className="vehicle-mini-card">
-              <span>Maintenance</span>
-              <strong>{stats.maintenance}</strong>
+              <span>Entretien</span>
+              <strong>{stats.entretien}</strong>
             </div>
           </div>
         </div>
@@ -320,25 +349,35 @@ const Vehicle = () => {
               </div>
 
               <div className="vehicle-field">
-                <label htmlFor="modele_id">Modele ID</label>
-                <input
+                <label htmlFor="modele_id">Modele</label>
+                <select
                   id="modele_id"
-                  type="number"
-                  min="1"
                   value={form.modele_id}
                   onChange={(event) => handleFieldChange('modele_id', event.target.value)}
-                />
+                >
+                  <option value="">Selectionner un modele</option>
+                  {modeles.map((modele) => (
+                    <option key={modele.id} value={modele.id}>
+                      {getModeleLabel(modele.id)}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="vehicle-field">
-                <label htmlFor="categorie_id">Categorie ID</label>
-                <input
+                <label htmlFor="categorie_id">Categorie</label>
+                <select
                   id="categorie_id"
-                  type="number"
-                  min="1"
                   value={form.categorie_id}
                   onChange={(event) => handleFieldChange('categorie_id', event.target.value)}
-                />
+                >
+                  <option value="">Selectionner une categorie</option>
+                  {categories.map((categorie) => (
+                    <option key={categorie.id} value={categorie.id}>
+                      {categorie.libelle}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="vehicle-field">
@@ -390,6 +429,17 @@ const Vehicle = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="vehicle-field vehicle-field-full">
+                <label htmlFor="photo_url">Photo URL</label>
+                <input
+                  id="photo_url"
+                  type="url"
+                  value={form.photo_url}
+                  onChange={(event) => handleFieldChange('photo_url', event.target.value)}
+                  placeholder="https://example.com/car.jpg"
+                />
               </div>
 
               <div className="vehicle-field">
@@ -448,7 +498,7 @@ const Vehicle = () => {
             <div className="vehicle-table-title">
               <h2>Tableau des vehicules</h2>
               <p>
-                Recherche instantanee par immatriculation, statut, agence ou identifiants metier.
+                Recherche instantanee par immatriculation, statut, agence, modele ou categorie.
               </p>
             </div>
           </div>
@@ -458,7 +508,7 @@ const Vehicle = () => {
               <div className="vehicle-search">
                 <input
                   type="search"
-                  placeholder="Chercher: immatriculation, ID, agence..."
+                  placeholder="Chercher: immatriculation, modele, categorie..."
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -475,7 +525,7 @@ const Vehicle = () => {
               </div>
             </div>
 
-            <button className="vehicle-button vehicle-button-ghost" type="button" onClick={loadVehicles}>
+            <button className="vehicle-button vehicle-button-ghost" type="button" onClick={loadPageData}>
               Rafraichir
             </button>
           </div>
@@ -491,6 +541,7 @@ const Vehicle = () => {
                   <tr>
                     <th>ID</th>
                     <th>Immatriculation</th>
+                    <th>Photo</th>
                     <th>Agence</th>
                     <th>Modele</th>
                     <th>Categorie</th>
@@ -509,9 +560,10 @@ const Vehicle = () => {
                     <tr key={vehicle.id}>
                       <td className="vehicle-id">#{vehicle.id}</td>
                       <td>{vehicle.immatriculation || '--'}</td>
+                      <td>{vehicle.photo_url ? 'Disponible' : '--'}</td>
                       <td>{vehicle.agence_id}</td>
-                      <td>{vehicle.modele_id}</td>
-                      <td>{vehicle.categorie_id}</td>
+                      <td>{getModeleLabel(vehicle.modele_id)}</td>
+                      <td>{getCategorieLabel(vehicle.categorie_id)}</td>
                       <td>
                         <span className={`vehicle-status-badge vehicle-status-${vehicle.statut}`}>
                           {statusOptions.find((option) => option.value === vehicle.statut)?.label ||

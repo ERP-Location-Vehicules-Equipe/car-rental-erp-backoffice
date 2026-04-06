@@ -9,10 +9,16 @@ const featureCards = [
     cta: 'Ouvrir la flotte',
   },
   {
-    title: 'Maintenance',
-    text: 'Planifier, suivre et cloturer les interventions avec historique et budget.',
-    to: '/maintenance',
-    cta: 'Ouvrir latelier',
+    title: 'Entretiens',
+    text: 'Planifier, suivre et cloturer les entretiens avec historique et budget.',
+    to: '/entretien',
+    cta: "Ouvrir l'atelier",
+  },
+  {
+    title: 'References',
+    text: 'Gerer categories, marques et modeles pour alimenter les formulaires metier.',
+    to: '/references',
+    cta: 'Ouvrir les references',
   },
 ]
 
@@ -24,7 +30,8 @@ const FleetDashboard = () => {
           <div className="dashboard-eyebrow">ERP Fleet Experience</div>
           <h1>Backoffice flotte plus clair, plus rapide, plus vivant.</h1>
           <p>
-            Une interface modernisee pour gerer les vehicules et les maintenances,
+            Une interface modernisee pour gerer les vehicules, les entretiens
+            et les references metier,
             avec des ecrans coherents, des tableaux lisibles et des formulaires relies
             directement au backend fleet-service.
           </p>
@@ -32,8 +39,11 @@ const FleetDashboard = () => {
             <Link className="dashboard-primary" to="/vehicle">
               Aller aux vehicules
             </Link>
-            <Link className="dashboard-secondary" to="/maintenance">
-              Aller a la maintenance
+            <Link className="dashboard-secondary" to="/entretien">
+              Aller aux entretiens
+            </Link>
+            <Link className="dashboard-secondary" to="/references">
+              Aller aux references
             </Link>
           </div>
         </div>
@@ -47,7 +57,7 @@ const FleetDashboard = () => {
           <div className="dashboard-metrics">
             <div className="dashboard-metric-card">
               <span>Modules</span>
-              <strong>2</strong>
+              <strong>3</strong>
             </div>
             <div className="dashboard-metric-card">
               <span>Flux CRUD</span>

@@ -26,6 +26,7 @@ class Vehicle(Base):
     kilometrage = Column(Integer)
     nombre_places = Column(Integer)
     statut = Column(String)
+    photo_url = Column(String, nullable=True)
 
     prix_location = Column(Float)
     valeur_achat = Column(Float)
