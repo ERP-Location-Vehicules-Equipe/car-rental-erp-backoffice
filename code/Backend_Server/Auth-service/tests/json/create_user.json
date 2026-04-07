@@ -1,0 +1,9 @@
+{
+  "nom": "Created By API",
+  "email": "created.user@erp.com",
+  "password": "CreatePass123!",
+  "role": "admin",
+  "agence_id": 2,
+  "actif": true
+}
+

@@ -1,0 +1,62 @@
+# =========================
+# Python bytecode / caches
+# =========================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# =========================
+# Virtual environments
+# =========================
+venv/
+env/
+ENV/
+.venv/
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Pytest / test artifacts
+# =========================
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# =========================
+# Type/check/lint caches
+# =========================
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# =========================
+# Local databases / temp files
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+test_auth_service.db
+test_auth_service_bootstrap.db
+
+# =========================
+# Logs / runtime artifacts
+# =========================
+*.log
+*.pid
+*.seed
+
+# =========================
+# OS / editor noise
+# =========================
+.DS_Store
+Thumbs.db
