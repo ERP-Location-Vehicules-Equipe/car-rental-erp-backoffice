@@ -1,0 +1,131 @@
+@startuml
+title MCD - ERP Location Voitures
+
+entity Client {
+  id_client
+  nom_complet
+  cin
+  telephone
+  email
+  adresse
+}
+
+entity Agence {
+  id_agence
+  nom
+  adresse
+  ville
+  telephone
+}
+
+entity Vehicule {
+  id_vehicule
+  immatriculation
+  kilometrage
+  statut
+  valeur_achat
+}
+
+entity Categorie {
+  id_categorie
+  libelle
+  tarif_jour_base
+}
+
+entity Marque {
+  id_marque
+  nom
+}
+
+entity Modele {
+  id_modele
+  nom
+}
+
+entity Location {
+  id_location
+  date_debut
+  date_fin_prevue
+  date_retour_reelle
+  tarif_jour
+  montant_total
+  statut
+}
+
+entity Facture {
+  id_facture
+  numero
+  montant_ht
+  tva
+  montant_ttc
+  statut
+}
+
+entity Paiement {
+  id_paiement
+  montant
+  mode
+  date_paiement
+  reference
+}
+
+entity Transfert {
+  id_transfert
+  date_depart
+  date_arrivee_prevue
+  date_arrivee_reelle
+  etat
+}
+
+entity Entretien {
+  id_entretien
+  type
+  date_debut
+  date_fin
+  cout
+}
+
+entity Charge {
+  id_charge
+  type
+  categorie_charge
+  montant
+  date_charge
+}
+
+entity Utilisateur {
+  id_user
+  nom
+  email
+  role
+}
+
+entity Notification {
+  id_notification
+  type
+  message
+  lu
+}
+
+'================ RELATIONS =================
+
+Client ||--o{ Location
+Vehicule ||--o{ Location
+Agence ||--o{ Vehicule
+Categorie ||--o{ Vehicule
+Marque ||--o{ Modele
+Modele ||--o{ Vehicule
+
+Location ||--|| Facture
+Facture ||--o{ Paiement
+
+Vehicule ||--o{ Entretien
+Vehicule ||--o{ Charge
+
+Vehicule ||--o{ Transfert
+Agence ||--o{ Transfert : origine
+Agence ||--o{ Transfert : destination
+
+Utilisateur ||--o{ Notification
+
+@enduml
