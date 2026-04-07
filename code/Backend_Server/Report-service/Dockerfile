@@ -1,4 +1,3 @@
-# Python image
 FROM python:3.11-slim
 
 # working directory
@@ -13,8 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # copy project
 COPY . .
 
-# expose port
-EXPOSE 8000
+# ✅ logo doit être ici avant CMD
+COPY logo.png /app/logo.png
 
-# start fastapi
+# lancer server
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
