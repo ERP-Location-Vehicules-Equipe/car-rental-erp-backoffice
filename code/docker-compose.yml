@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   rabbitmq:
     image: rabbitmq:3-management
@@ -11,6 +9,12 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
@@ -26,6 +30,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
 
   pgadmin:
     image: dpage/pgadmin4
@@ -48,23 +53,14 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - postgres_db
-      - rabbitmq
+      postgres_db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/auth_db
-      RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
-
-  agence_service:
-    build: ./Backend_Server/Agence-service
-    container_name: agence_microservice
-    restart: always
-    ports:
-      - "8002:8002"
-    depends_on:
-      - postgres_db
-      - rabbitmq
-    environment:
-      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/agence_db
+      SECRET_KEY: super_secret_key_123456
+      ALGORITHM: HS256
       RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
 
   gateway_service:
@@ -76,12 +72,129 @@ services:
     depends_on:
       - auth_service
       - agence_service
-      - rabbitmq
     environment:
       PORT: 8001
       AUTH_SERVICE_URL: http://auth_service:8000
       AGENCE_SERVICE_URL: http://agence_service:8002
+      FINANCE_SERVICE_URL: http://finance_service:8003
+      FLEET_SERVICE_URL: http://fleet_service:8004
+      LOCATION_SERVICE_URL: http://location_service:8005
+      NOTIFICATION_SERVICE_URL: http://notification_service:8006
+      REPORT_SERVICE_URL: http://report_service:8007
+      TRANSFER_SERVICE_URL: http://transfer_service:8008
+
+  agence_service:
+    build: ./Backend_Server/Agence-service
+    container_name: agence_microservice
+    restart: always
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres_db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 8002
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/agence_db
+      SECRET_KEY: super_secret_key_123456
       RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
+
+  finance_service:
+    build: ./Backend_Server/Finance-service
+    container_name: finance_microservice
+    restart: always
+    ports:
+      - "8003:8003"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/finance_db
+      SECRET_KEY: super_secret_key_123456
+      ALGORITHM: HS256
+
+  fleet_service:
+    build: ./Backend_Server/fleet-service
+    container_name: fleet_microservice
+    restart: always
+    ports:
+      - "8004:8004"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/fleet_db
+
+  location_service:
+    build: ./Backend_Server/location-service
+    container_name: location_microservice
+    restart: always
+    ports:
+      - "8005:8005"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/location_db
+
+  notification_service:
+    build: ./Backend_Server/notification_service
+    container_name: notification_microservice
+    restart: always
+    ports:
+      - "8006:8006"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
+      SMTP_SERVER: smtp.resend.com
+      SMTP_PORT: 465
+      SMTP_USERNAME: resend
+      SMTP_PASSWORD: replace_me
+      EMAIL_FROM: onboarding@resend.dev
+      APP_NAME: notification_service
+      DEBUG: "true"
+
+  notification_worker:
+    build: ./Backend_Server/notification_service
+    container_name: notification_worker
+    restart: always
+    command: python worker.py
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://erp_user:erp_password@rabbitmq:5672/
+      SMTP_SERVER: smtp.resend.com
+      SMTP_PORT: 465
+      SMTP_USERNAME: resend
+      SMTP_PASSWORD: replace_me
+      EMAIL_FROM: onboarding@resend.dev
+      APP_NAME: notification_service
+      DEBUG: "true"
+
+  report_service:
+    build: ./Backend_Server/Report-service
+    container_name: report_microservice
+    restart: always
+    ports:
+      - "8007:8007"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/report_db
+
+  transfer_service:
+    build: ./Backend_Server/transfer-service
+    container_name: transfer_microservice
+    restart: always
+    ports:
+      - "8008:8008"
+    depends_on:
+      - postgres_db
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres_db:5432/transfer_db
+      SECRET_KEY: super_secret_key_123456
+      ALGORITHM: HS256
 
   frontend_app:
     build: ./Frontend

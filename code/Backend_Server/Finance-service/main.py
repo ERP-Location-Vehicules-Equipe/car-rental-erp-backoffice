@@ -1,70 +1,38 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from config.database import Base, engine
-from fastapi.middleware.cors import CORSMiddleware
 from Routes.index import router
-from repositories.db_init_delete_at import init_db
-
-
 
 app = FastAPI(
     title="Finance Service",
-    version="1.0.0"
+    version="1.0.0",
 )
 
-# =========================
-# CORS
-# =========================
-<<<<<<< HEAD:code/Backend_Server/Auth-service/main.py
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-=======
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],  # ✅ explicit origins (required with credentials=True)
-    allow_credentials=True,
->>>>>>> meryem:code/Backend_Server/Finance-service/main.py
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# =========================
-# Database Initialization
-# =========================
-
 try:
     Base.metadata.create_all(bind=engine)
-    init_db()
     print("Database connected successfully")
-
 except Exception as e:
     print(f"Database connection failed: {e}")
 
-
-# =========================
-# Routes
-# =========================
-
 app.include_router(router, prefix="/api")
 
-
-# =========================
-# Root Endpoint
-# =========================
 
 @app.get("/")
 def root():
     return {
         "service": "Finance Service",
-        "status": "running"
+        "status": "running",
     }
 
-# =========================
-# Health Check
-# =========================
 
 @app.get("/health")
 def health_check():
