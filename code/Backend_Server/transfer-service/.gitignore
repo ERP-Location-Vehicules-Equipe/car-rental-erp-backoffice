@@ -35,8 +35,7 @@ dist/
 *.pid
 
 # Environment / secrets
-.env
-.env.*
+
 !.env.example
 
 # IDE / OS
