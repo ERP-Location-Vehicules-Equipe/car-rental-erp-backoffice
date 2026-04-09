@@ -41,6 +41,17 @@ const FleetManagement = () => {
     const [agences, setAgences] = useState([]);
     const [agenceWarning, setAgenceWarning] = useState('');
 
+    const scopeAgenceLabel = useMemo(() => {
+        if (isSuperAdmin) {
+            return 'Globale';
+        }
+        if (!userAgenceId) {
+            return "Pas d'agence";
+        }
+        const match = agences.find((agence) => Number(agence.id) === Number(userAgenceId));
+        return match?.nom || "Pas d'agence";
+    }, [agences, isSuperAdmin, userAgenceId]);
+
     const roleBadge = useMemo(() => {
         if (isSuperAdmin) {
             return { label: 'SUPER ADMIN', className: 'bg-amber-100 text-amber-800 border border-amber-200' };
@@ -141,7 +152,7 @@ const FleetManagement = () => {
                                 {roleBadge.label}
                             </span>
                             <span className="text-xs text-slate-500">
-                                Portee agence: {userAgenceId ? `Agence #${userAgenceId}` : 'globale'}
+                                Portee agence: {scopeAgenceLabel}
                             </span>
                         </div>
                     </div>

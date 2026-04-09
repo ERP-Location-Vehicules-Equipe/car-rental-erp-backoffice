@@ -57,6 +57,13 @@ const VehiclesSection = ({
         }, {});
     }, [agences]);
 
+    const getAgenceLabel = (agenceId) => {
+        if (!agenceId) {
+            return "Pas d'agence";
+        }
+        return agenceById[Number(agenceId)] || "Pas d'agence";
+    };
+
     const resetForm = () => {
         setFormData({
             ...emptyForm,
@@ -194,7 +201,7 @@ const VehiclesSection = ({
                         <label className="text-xs font-semibold text-slate-600">
                             Agence
                             <input
-                                value={agenceById[Number(userAgenceId)] || `Agence #${userAgenceId}`}
+                                value={getAgenceLabel(userAgenceId)}
                                 className="mt-1 w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-md text-sm"
                                 disabled
                             />
@@ -288,7 +295,7 @@ const VehiclesSection = ({
                         {vehicles.map((vehicle) => (
                             <tr key={vehicle.id}>
                                 <td className="px-4 py-2 text-sm font-medium text-slate-900">{vehicle.immatriculation}</td>
-                                <td className="px-4 py-2 text-sm text-slate-700">{agenceById[Number(vehicle.agence_id)] || `Agence #${vehicle.agence_id}`}</td>
+                                <td className="px-4 py-2 text-sm text-slate-700">{getAgenceLabel(vehicle.agence_id)}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">{modeleById[Number(vehicle.modele_id)] || vehicle.modele_id}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">{categoryById[Number(vehicle.categorie_id)] || vehicle.categorie_id}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">

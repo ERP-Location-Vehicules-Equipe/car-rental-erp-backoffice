@@ -73,6 +73,8 @@ export const agenceProxy = buildProxy(
 // ==============================
 export const fleetProxy = buildProxy(
   FLEET_SERVICE_URL,
+  // The app mounts this proxy on /api/fleet, so upstream should receive /vehicles, /marques, etc.
+  // Keeping empty upstreamBasePath avoids forwarding /api/fleet/api/fleet/... by mistake.
   "",
   "Fleet service"
 );

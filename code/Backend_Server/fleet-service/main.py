@@ -99,6 +99,26 @@ def sync_vehicle_schema() -> None:
                 text("ALTER TABLE vehicles ADD COLUMN photo_url VARCHAR")
             )
 
+    if "created_at" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE vehicles ADD COLUMN created_at TIMESTAMP")
+            )
+
+    with engine.begin() as connection:
+        connection.execute(
+            text("UPDATE vehicles SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
+        )
+
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE vehicles "
+                    "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
+
 
 def sync_entretien_schema() -> None:
     inspector = inspect(engine)
@@ -119,6 +139,34 @@ def sync_entretien_schema() -> None:
                             f"DROP CONSTRAINT IF EXISTS {constraint_name}"
                         )
                     )
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("vehicle_entretiens")
+    }
+
+    if "created_at" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE vehicle_entretiens ADD COLUMN created_at TIMESTAMP")
+            )
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE vehicle_entretiens "
+                "SET created_at = CURRENT_TIMESTAMP "
+                "WHERE created_at IS NULL"
+            )
+        )
+
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE vehicle_entretiens "
+                    "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
 
 
 sync_vehicle_schema()
