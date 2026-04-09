@@ -22,6 +22,7 @@ import AgenceDetail from './Pages/Agences/AgenceDetail';
 import TransferListPage from './Pages/TransferListPage';
 import TransferCreatePage from './Pages/TransferCreatePage';
 import FleetManagement from './Pages/Fleet/FleetManagement';
+import LocationsManagement from './Pages/Locations/LocationsManagement';
 
 function TransferListRoute() {
     const navigate = useNavigate();
@@ -96,6 +97,7 @@ function App() {
                     <Route path="/agences" element={<AgencesList />} />
                     <Route path="/agences/:id" element={<AgenceDetail />} />
                     <Route path="/fleet" element={<FleetManagement />} />
+                    <Route path="/locations" element={<LocationsManagement />} />
                     <Route path="/transferts" element={<TransferListRoute />} />
                     <Route path="/transferts/create" element={<TransferCreateRoute />} />
 

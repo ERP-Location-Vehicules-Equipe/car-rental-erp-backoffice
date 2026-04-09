@@ -6,6 +6,7 @@ dotenv.config();
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:8000";
 const AGENCE_SERVICE_URL = process.env.AGENCE_SERVICE_URL || "http://localhost:8002";
 const FLEET_SERVICE_URL = process.env.FLEET_SERVICE_URL || "http://localhost:8004";
+const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || "http://localhost:8005";
 
 const buildProxy = (target, upstreamBasePath, serviceName) =>
   createProxyMiddleware({
@@ -77,4 +78,14 @@ export const fleetProxy = buildProxy(
   // Keeping empty upstreamBasePath avoids forwarding /api/fleet/api/fleet/... by mistake.
   "",
   "Fleet service"
+);
+
+// ==============================
+// LOCATION SERVICE PROXY
+// ==============================
+export const locationProxy = buildProxy(
+  LOCATION_SERVICE_URL,
+  // The app mounts this proxy on /api/location, so upstream should receive /locations routes directly.
+  "",
+  "Location service"
 );

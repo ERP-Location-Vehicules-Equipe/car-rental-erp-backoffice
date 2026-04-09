@@ -16,6 +16,7 @@ const MainLayout = () => {
         { name: 'Tableau de bord', path: '/dashboard' },
         { name: 'Agences', path: '/agences' },
         { name: 'Gestion Parc', path: '/fleet' },
+        { name: 'Locations', path: '/locations' },
         { name: 'Profil', path: '/profile' },
     ];
 

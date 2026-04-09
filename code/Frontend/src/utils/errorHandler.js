@@ -41,9 +41,20 @@ export const getErrorMessage = (error, defaultMessage = "Une erreur est survenue
     const detail = data?.detail;
     const message = data?.message;
     const fieldErrors = getFieldErrors(error);
+    const validationErrors = Array.isArray(data?.errors) ? data.errors : [];
 
     if (Object.keys(fieldErrors).length > 0) {
         return "Veuillez corriger les erreurs du formulaire.";
+    }
+
+    if (validationErrors.length > 0) {
+        const firstError = validationErrors[0];
+        if (typeof firstError?.msg === 'string' && firstError.msg.trim() !== '') {
+            return firstError.msg;
+        }
+        if (typeof firstError?.message === 'string' && firstError.message.trim() !== '') {
+            return firstError.message;
+        }
     }
 
     if (typeof detail === 'string') {

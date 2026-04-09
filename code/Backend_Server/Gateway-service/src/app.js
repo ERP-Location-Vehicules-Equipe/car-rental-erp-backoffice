@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-import { authProxy, agenceProxy, usersProxy, fleetProxy } from "./routes/index.js";
+import { authProxy, agenceProxy, usersProxy, fleetProxy, locationProxy } from "./routes/index.js";
 import { logger } from "./middlewares/loggerMiddleware.js";
 import { errorHandler } from "./middlewares/errorMiddleware.js";
 
@@ -26,6 +26,7 @@ app.use("/api/auth", authProxy);
 app.use("/api/utilisateurs", usersProxy);
 app.use("/api/agences", agenceProxy);
 app.use("/api/fleet", fleetProxy);
+app.use("/api/location", locationProxy);
 
 // ==============================
 // TEST ROUTE
