@@ -62,11 +62,22 @@ def refresh_access_token(refresh_token: str):
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("user_id")
+        email = payload.get("email")
+        role = payload.get("role")
+        agence_id = payload.get("agence_id")
 
         if not user_id:
             return None
 
-        new_access_token = create_access_token({"user_id": user_id})
+        refreshed_payload = {"user_id": user_id}
+        if email is not None:
+            refreshed_payload["email"] = email
+        if role is not None:
+            refreshed_payload["role"] = role
+        if agence_id is not None:
+            refreshed_payload["agence_id"] = agence_id
+
+        new_access_token = create_access_token(refreshed_payload)
         return new_access_token
     except JWTError:
         return None

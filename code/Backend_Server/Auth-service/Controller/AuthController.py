@@ -62,10 +62,14 @@ def login_user(db: Session, data):
             detail="Account is inactive. Please contact your admin.",
         )
 
-    access_token = create_access_token(
-        {"user_id": user.id, "email": user.email, "role": user.role}
-    )
-    refresh_token = create_refresh_token({"user_id": user.id})
+    token_payload = {
+        "user_id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "agence_id": user.agence_id,
+    }
+    access_token = create_access_token(token_payload)
+    refresh_token = create_refresh_token(token_payload)
 
     return {"access_token": access_token, "refresh_token": refresh_token}
 

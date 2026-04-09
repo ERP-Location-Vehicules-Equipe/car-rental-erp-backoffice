@@ -24,6 +24,17 @@ def get_categorie_or_404(db: Session, categorie_id: int) -> Categorie:
 
 
 def create_categorie(db: Session, categorie_data: CategorieCreate):
+    existing = (
+        db.query(Categorie)
+        .filter(Categorie.libelle == categorie_data.libelle)
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Categorie already exists",
+        )
+
     categorie = Categorie(**categorie_data.model_dump())
     db.add(categorie)
     db.commit()
@@ -34,6 +45,21 @@ def create_categorie(db: Session, categorie_data: CategorieCreate):
 def update_categorie(db: Session, categorie_id: int, categorie_data: CategorieUpdate):
     categorie = get_categorie_or_404(db, categorie_id)
     update_data = categorie_data.model_dump(exclude_unset=True)
+
+    if "libelle" in update_data:
+        existing = (
+            db.query(Categorie)
+            .filter(
+                Categorie.libelle == update_data["libelle"],
+                Categorie.id != categorie_id,
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Categorie already exists",
+            )
 
     for field, value in update_data.items():
         setattr(categorie, field, value)

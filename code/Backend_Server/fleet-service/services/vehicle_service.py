@@ -19,9 +19,12 @@ def get_next_available_vehicle_id(db: Session) -> int:
     return next_id
 
 
-def get_all_vehicles(db: Session):
-    # Return all stored vehicles.
-    return db.query(Vehicle).all()
+def get_all_vehicles(db: Session, agence_id: int | None = None):
+    # Return all vehicles. Optional agence_id can scope the query.
+    query = db.query(Vehicle)
+    if agence_id is not None:
+        query = query.filter(Vehicle.agence_id == agence_id)
+    return query.order_by(Vehicle.id.asc()).all()
 
 
 def get_vehicle_by_id(db: Session, vehicle_id: int):
@@ -39,8 +42,27 @@ def get_vehicle_or_404(db: Session, vehicle_id: int) -> Vehicle:
     return vehicle
 
 
+def assert_vehicle_in_agence(vehicle: Vehicle, agence_id: int):
+    if vehicle.agence_id != agence_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only manage vehicles in your own agence",
+        )
+
+
 def create_vehicle(db: Session, vehicle_data: VehicleCreate):
     # Create a new vehicle record from the request payload.
+    existing_vehicle = (
+        db.query(Vehicle)
+        .filter(Vehicle.immatriculation == vehicle_data.immatriculation)
+        .first()
+    )
+    if existing_vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vehicle immatriculation already exists",
+        )
+
     vehicle = Vehicle(
         id=get_next_available_vehicle_id(db),
         **vehicle_data.model_dump(),
@@ -55,6 +77,21 @@ def update_vehicle(db: Session, vehicle_id: int, vehicle_data: VehicleUpdate):
     # Update only the fields provided in the request payload.
     vehicle = get_vehicle_or_404(db, vehicle_id)
     update_data = vehicle_data.model_dump(exclude_unset=True)
+
+    if "immatriculation" in update_data:
+        duplicate = (
+            db.query(Vehicle)
+            .filter(
+                Vehicle.immatriculation == update_data["immatriculation"],
+                Vehicle.id != vehicle_id,
+            )
+            .first()
+        )
+        if duplicate:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vehicle immatriculation already exists",
+            )
 
     for field, value in update_data.items():
         setattr(vehicle, field, value)

@@ -1,16 +1,13 @@
-<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
 import authService from './Services/authService';
 import userService from './Services/userService';
 
-// Layouts & protection
 import MainLayout from './Layouts/MainLayout';
 import ProtectedRoute from './Routes/ProtectedRoute';
 import PublicRoute from './Routes/PublicRoute';
 
-// Pages
 import Login from './Pages/Auth/Login';
 import Dashboard from './Pages/Dashboard/Dashboard';
 import Profile from './Pages/Profile/Profile';
@@ -22,11 +19,28 @@ import AgencesList from './Pages/Agences/AgencesList';
 import CreateAgence from './Pages/Agences/CreateAgence';
 import EditAgence from './Pages/Agences/EditAgence';
 import AgenceDetail from './Pages/Agences/AgenceDetail';
+import TransferListPage from './Pages/TransferListPage';
+import TransferCreatePage from './Pages/TransferCreatePage';
+import FleetManagement from './Pages/Fleet/FleetManagement';
+
+function TransferListRoute() {
+    const navigate = useNavigate();
+    return <TransferListPage onCreateClick={() => navigate('/transferts/create')} />;
+}
+
+function TransferCreateRoute() {
+    const navigate = useNavigate();
+    return (
+        <TransferCreatePage
+            onBackToList={() => navigate('/transferts')}
+            onCreated={() => navigate('/transferts')}
+        />
+    );
+}
 
 function App() {
     const [isInitializing, setIsInitializing] = useState(true);
 
-    // Validation du token au demarrage.
     useEffect(() => {
         const checkAuthStatus = async () => {
             const token = localStorage.getItem('access_token');
@@ -59,7 +73,6 @@ function App() {
     return (
         <Router>
             <Routes>
-                {/* Route publique */}
                 <Route
                     path="/login"
                     element={(
@@ -69,7 +82,6 @@ function App() {
                     )}
                 />
 
-                {/* Routes protegees avec layout principal */}
                 <Route
                     element={(
                         <ProtectedRoute>
@@ -79,13 +91,14 @@ function App() {
                 >
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-                    {/* Routes accessibles a tout utilisateur authentifie */}
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/agences" element={<AgencesList />} />
                     <Route path="/agences/:id" element={<AgenceDetail />} />
+                    <Route path="/fleet" element={<FleetManagement />} />
+                    <Route path="/transferts" element={<TransferListRoute />} />
+                    <Route path="/transferts/create" element={<TransferCreateRoute />} />
 
-                    {/* Gestion agences: super_admin uniquement */}
                     <Route
                         path="/agences/create"
                         element={(
@@ -103,7 +116,6 @@ function App() {
                         )}
                     />
 
-                    {/* Gestion users: admin + super_admin */}
                     <Route
                         path="/users"
                         element={(
@@ -142,57 +154,6 @@ function App() {
             </Routes>
         </Router>
     );
-=======
-import { useState } from 'react'
-import './App.css'
-import TransferListPage from './pages/TransferListPage.jsx'
-import TransferCreatePage from './pages/TransferCreatePage.jsx'
-import erpLogo from './assets/erp-logo.jpg'
-
-function App() {
-  const [page, setPage] = useState('list')
-
-  return (
-    <div className="layout">
-      <header className="topbar">
-        <div className="brand">
-          <img src={erpLogo} alt="ERP Auto" className="brand-logo" />
-          <div>
-            <div className="brand-name">ERP Auto</div>
-            <div className="brand-sub">Service de transfert</div>
-          </div>
-        </div>
-        <div className="tab-nav">
-          <button
-            className={`tab-btn ${page === 'list' ? 'active' : ''}`}
-            type="button"
-            onClick={() => setPage('list')}
-            disabled={page === 'list'}
-          >
-            Transferts
-          </button>
-          <button
-            className={`tab-btn ${page === 'create' ? 'active' : ''}`}
-            type="button"
-            onClick={() => setPage('create')}
-            disabled={page === 'create'}
-          >
-            Nouveau transfert
-          </button>
-        </div>
-      </header>
-
-      {page === 'list' ? (
-        <TransferListPage onCreateClick={() => setPage('create')} />
-      ) : (
-        <TransferCreatePage
-          onBackToList={() => setPage('list')}
-          onCreated={() => setPage('list')}
-        />
-      )}
-    </div>
-  )
->>>>>>> e153bf83c0147648922a2fcab79c5be599dd366c
 }
 
 export default App;

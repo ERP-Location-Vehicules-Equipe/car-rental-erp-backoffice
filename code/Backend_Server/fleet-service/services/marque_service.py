@@ -24,6 +24,13 @@ def get_marque_or_404(db: Session, marque_id: int) -> Marque:
 
 
 def create_marque(db: Session, marque_data: MarqueCreate):
+    existing = db.query(Marque).filter(Marque.nom == marque_data.nom).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Marque already exists",
+        )
+
     marque = Marque(**marque_data.model_dump())
     db.add(marque)
     db.commit()
@@ -34,6 +41,18 @@ def create_marque(db: Session, marque_data: MarqueCreate):
 def update_marque(db: Session, marque_id: int, marque_data: MarqueUpdate):
     marque = get_marque_or_404(db, marque_id)
     update_data = marque_data.model_dump(exclude_unset=True)
+
+    if "nom" in update_data:
+        existing = (
+            db.query(Marque)
+            .filter(Marque.nom == update_data["nom"], Marque.id != marque_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Marque already exists",
+            )
 
     for field, value in update_data.items():
         setattr(marque, field, value)

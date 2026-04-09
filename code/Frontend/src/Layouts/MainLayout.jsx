@@ -15,6 +15,7 @@ const MainLayout = () => {
     const menuItems = [
         { name: 'Tableau de bord', path: '/dashboard' },
         { name: 'Agences', path: '/agences' },
+        { name: 'Gestion Parc', path: '/fleet' },
         { name: 'Profil', path: '/profile' },
     ];
 

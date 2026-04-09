@@ -3,7 +3,7 @@ import {
   getTransfers,
   updateTransferStatus,
   cancelTransfer,
-} from '../services/transferApi'
+} from '../Services/transferApi'
 
 const ETAT_OPTIONS = ['PENDING', 'IN_TRANSIT', 'COMPLETED', 'CANCELLED']
 const badgeClass = {

@@ -1,6 +1,11 @@
+import logging
+
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from controllers.categorie_controller import router as categorie_router
 from controllers.entretien_controller import router as entretien_router
@@ -14,7 +19,12 @@ from models.marque import Marque
 from models.modele import Modele
 from models.vehicle import Vehicle
 
-app = FastAPI()
+logger = logging.getLogger("fleet_service")
+
+app = FastAPI(
+    title="Fleet Service",
+    version="1.0.0",
+)
 
 allowed_origins = [
     "http://localhost:5173",
@@ -119,6 +129,34 @@ app.include_router(entretien_router)
 app.include_router(categorie_router)
 app.include_router(marque_router)
 app.include_router(modele_router)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(_, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Invalid input data",
+            "errors": exc.errors(),
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_, exc: Exception):
+    logger.exception("Unhandled error in fleet-service: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 @app.get("/")

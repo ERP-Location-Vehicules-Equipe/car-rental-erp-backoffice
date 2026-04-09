@@ -5,6 +5,7 @@ dotenv.config();
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:8000";
 const AGENCE_SERVICE_URL = process.env.AGENCE_SERVICE_URL || "http://localhost:8002";
+const FLEET_SERVICE_URL = process.env.FLEET_SERVICE_URL || "http://localhost:8004";
 
 const buildProxy = (target, upstreamBasePath, serviceName) =>
   createProxyMiddleware({
@@ -65,4 +66,13 @@ export const agenceProxy = buildProxy(
   AGENCE_SERVICE_URL,
   "/api/agences",
   "Agence service"
+);
+
+// ==============================
+// FLEET SERVICE PROXY
+// ==============================
+export const fleetProxy = buildProxy(
+  FLEET_SERVICE_URL,
+  "",
+  "Fleet service"
 );
