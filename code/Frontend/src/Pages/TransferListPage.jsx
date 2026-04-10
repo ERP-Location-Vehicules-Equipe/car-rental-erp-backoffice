@@ -4,6 +4,7 @@ import {
   updateTransferStatus,
   cancelTransfer,
 } from '../Services/transferApi'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 const ETAT_OPTIONS = ['PENDING', 'IN_TRANSIT', 'COMPLETED', 'CANCELLED']
 const badgeClass = {
@@ -35,6 +36,7 @@ function TransferListPage({ onCreateClick }) {
   const [actionId, setActionId] = useState(null)
   const [etatFilter, setEtatFilter] = useState('ALL')
   const [vehiculeSearch, setVehiculeSearch] = useState('')
+  const [transferToCancel, setTransferToCancel] = useState(null)
 
   const loadTransfers = async () => {
     setLoading(true)
@@ -86,10 +88,6 @@ function TransferListPage({ onCreateClick }) {
   }
 
   const handleCancel = async (id) => {
-    const confirmCancel = window.confirm(
-      "Confirmez-vous l'annulation de ce transfert ?",
-    )
-    if (!confirmCancel) return
     setActionId(id)
     setMessage('')
     setError('')
@@ -219,7 +217,7 @@ function TransferListPage({ onCreateClick }) {
                     <button
                       className="btn btn-ghost"
                       type="button"
-                      onClick={() => handleCancel(transfer.id)}
+                      onClick={() => setTransferToCancel(transfer.id)}
                       disabled={
                         actionId === transfer.id ||
                         transfer.etat === 'CANCELLED' ||
@@ -235,6 +233,19 @@ function TransferListPage({ onCreateClick }) {
           </tbody>
         </table>
       )}
+      <ConfirmDialog
+        open={Boolean(transferToCancel)}
+        title="Confirmation d'annulation"
+        message={transferToCancel ? `Annuler le transfert #${transferToCancel} ?` : "Confirmer l'annulation ?"}
+        confirmLabel="Annuler transfert"
+        confirmClassName="bg-amber-600 hover:bg-amber-700"
+        onCancel={() => setTransferToCancel(null)}
+        onConfirm={async () => {
+          if (!transferToCancel) return
+          await handleCancel(transferToCancel)
+          setTransferToCancel(null)
+        }}
+      />
     </div>
   )
 }

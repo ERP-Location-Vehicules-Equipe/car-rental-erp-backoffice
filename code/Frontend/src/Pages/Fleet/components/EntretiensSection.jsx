@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import fleetService from '../../../Services/fleetService';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { formatDateTime, toIsoOrNull, toLocalDateTimeInput } from './fleetUiUtils';
 
 const ENTRETIEN_TYPES = ['preventive', 'corrective'];
@@ -16,21 +18,90 @@ const emptyForm = {
     statut: 'planifiee',
 };
 
-const EntretiensSection = ({ entretiens, vehicles, canManage, executeAction }) => {
+const toDateOnly = (value) => {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    return date.toISOString().slice(0, 10);
+};
+
+const EntretiensSection = ({ entretiens, vehicles, modeles, marques, canManage, executeAction }) => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState(emptyForm);
     const [editingId, setEditingId] = useState(null);
+    const [filters, setFilters] = useState({
+        search: '',
+        from: '',
+        to: '',
+    });
+    const [deleteDialog, setDeleteDialog] = useState({
+        open: false,
+        entretien: null,
+    });
+
+    const modeleById = useMemo(() => {
+        return (modeles || []).reduce((acc, modele) => {
+            acc[Number(modele.id)] = modele;
+            return acc;
+        }, {});
+    }, [modeles]);
+
+    const marqueById = useMemo(() => {
+        return (marques || []).reduce((acc, marque) => {
+            acc[Number(marque.id)] = marque.nom;
+            return acc;
+        }, {});
+    }, [marques]);
 
     const vehicleLabelById = useMemo(() => {
         return (vehicles || []).reduce((acc, vehicle) => {
-            acc[Number(vehicle.id)] = `${vehicle.immatriculation} (${vehicle.id})`;
+            const modele = modeleById[Number(vehicle.modele_id)];
+            const marqueNom = modele ? marqueById[Number(modele.marque_id)] : '';
+            const modeleNom = modele?.nom || '';
+            const base = `${marqueNom || ''} ${modeleNom || ''}`.trim();
+            if (base) {
+                acc[Number(vehicle.id)] = `${base} (${vehicle.immatriculation})`;
+            } else {
+                acc[Number(vehicle.id)] = vehicle.immatriculation || 'Vehicule inconnu';
+            }
             return acc;
         }, {});
-    }, [vehicles]);
+    }, [marqueById, modeleById, vehicles]);
 
     const resetForm = () => {
         setFormData(emptyForm);
         setEditingId(null);
     };
+
+    const filteredEntretiens = useMemo(() => {
+        const query = filters.search.trim().toLowerCase();
+        const from = filters.from;
+        const to = filters.to;
+
+        return entretiens.filter((entretien) => {
+            const dateOnly = toDateOnly(entretien.date_debut);
+            const matchFrom = !from || (dateOnly && dateOnly >= from);
+            const matchTo = !to || (dateOnly && dateOnly <= to);
+            if (!matchFrom || !matchTo) {
+                return false;
+            }
+            if (!query) {
+                return true;
+            }
+            return [
+                entretien.type_entretien,
+                entretien.statut,
+                entretien.description,
+                entretien.prestataire,
+                entretien.cout,
+                vehicleLabelById[Number(entretien.vehicle_id)] || '',
+            ].some((value) => String(value || '').toLowerCase().includes(query));
+        });
+    }, [entretiens, filters.from, filters.search, filters.to, vehicleLabelById]);
 
     const buildPayload = () => {
         return {
@@ -95,9 +166,6 @@ const EntretiensSection = ({ entretiens, vehicles, canManage, executeAction }) =
     };
 
     const handleDelete = (id) => {
-        if (!window.confirm('Supprimer cet entretien ?')) {
-            return;
-        }
         return executeAction(
             () => fleetService.deleteEntretien(id),
             'Entretien supprime.',
@@ -133,7 +201,7 @@ const EntretiensSection = ({ entretiens, vehicles, canManage, executeAction }) =
                             <option value="">Selectionner</option>
                             {vehicles.map((vehicle) => (
                                 <option key={vehicle.id} value={vehicle.id}>
-                                    {vehicle.immatriculation} - {vehicle.id}
+                                    {vehicleLabelById[Number(vehicle.id)] || 'Vehicule inconnu'}
                                 </option>
                             ))}
                         </select>
@@ -233,6 +301,35 @@ const EntretiensSection = ({ entretiens, vehicles, canManage, executeAction }) =
             )}
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border-b border-slate-200 bg-slate-50">
+                    <label className="text-xs font-semibold text-slate-600">
+                        Recherche
+                        <input
+                            value={filters.search}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="Vehicule, type, statut, prestataire..."
+                        />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                        Date debut du
+                        <input
+                            type="date"
+                            value={filters.from}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, from: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                        Date debut au
+                        <input
+                            type="date"
+                            value={filters.to}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, to: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </label>
+                </div>
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                         <tr>
@@ -242,40 +339,67 @@ const EntretiensSection = ({ entretiens, vehicles, canManage, executeAction }) =
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Debut</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Fin</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Cout</th>
-                            {canManage && <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>}
+                            <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                        {entretiens.map((entretien) => (
+                        {filteredEntretiens.map((entretien) => (
                             <tr key={entretien.id}>
-                                <td className="px-4 py-2 text-sm text-slate-900 font-medium">{vehicleLabelById[Number(entretien.vehicle_id)] || `Vehicule #${entretien.vehicle_id}`}</td>
+                                <td className="px-4 py-2 text-sm text-slate-900 font-medium">{vehicleLabelById[Number(entretien.vehicle_id)] || 'Vehicule inconnu'}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">{entretien.type_entretien}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">{entretien.statut}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">{formatDateTime(entretien.date_debut)}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">{formatDateTime(entretien.date_fin)}</td>
                                 <td className="px-4 py-2 text-sm text-slate-700">{entretien.cout}</td>
-                                {canManage && (
-                                    <td className="px-4 py-2 text-right text-sm space-x-3">
+                                <td className="px-4 py-2 text-right text-sm space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate(`/fleet/entretiens/${entretien.id}`)}
+                                        className="text-slate-700 hover:text-slate-900"
+                                    >
+                                        Details
+                                    </button>
+                                    {canManage && (
                                         <button type="button" onClick={() => handleEdit(entretien)} className="text-blue-600 hover:text-blue-800">
                                             Modifier
                                         </button>
-                                        <button type="button" onClick={() => handleDelete(entretien.id)} className="text-red-600 hover:text-red-800">
+                                    )}
+                                    {canManage && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setDeleteDialog({ open: true, entretien })}
+                                            className="text-red-600 hover:text-red-800"
+                                        >
                                             Supprimer
                                         </button>
-                                    </td>
-                                )}
+                                    )}
+                                </td>
                             </tr>
                         ))}
-                        {entretiens.length === 0 && (
+                        {filteredEntretiens.length === 0 && (
                             <tr>
-                                <td colSpan={canManage ? 7 : 6} className="px-4 py-6 text-center text-sm text-slate-500">
-                                    Aucun entretien enregistre.
+                                <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
+                                    Aucun entretien trouve.
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+            <ConfirmDialog
+                open={deleteDialog.open}
+                title="Confirmation de suppression"
+                message={deleteDialog.entretien ? `Supprimer cet entretien (${vehicleLabelById[Number(deleteDialog.entretien.vehicle_id)] || `#${deleteDialog.entretien.id}`}) ?` : 'Supprimer cet entretien ?'}
+                confirmLabel="Supprimer"
+                onCancel={() => setDeleteDialog({ open: false, entretien: null })}
+                onConfirm={async () => {
+                    if (!deleteDialog.entretien) {
+                        return;
+                    }
+                    await handleDelete(deleteDialog.entretien.id);
+                    setDeleteDialog({ open: false, entretien: null });
+                }}
+            />
         </section>
     );
 };

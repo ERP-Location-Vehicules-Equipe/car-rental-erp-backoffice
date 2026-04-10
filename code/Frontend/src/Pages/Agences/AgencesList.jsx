@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import agenceService from '../../Services/agenceService';
 import authService from '../../Services/authService';
 import { getErrorMessage } from '../../utils/errorHandler';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
 const formatDateTime = (value) => {
     if (!value) {
@@ -17,6 +18,17 @@ const formatDateTime = (value) => {
     return date.toLocaleString();
 };
 
+const toDateOnly = (value) => {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    return date.toISOString().slice(0, 10);
+};
+
 const AgencesList = () => {
     const [agences, setAgences] = useState([]);
     const [deletedAgences, setDeletedAgences] = useState([]);
@@ -25,6 +37,16 @@ const AgencesList = () => {
     const [showDeleted, setShowDeleted] = useState(false);
     const [error, setError] = useState('');
     const [deletedError, setDeletedError] = useState('');
+    const [filters, setFilters] = useState({
+        search: '',
+        from: '',
+        to: '',
+    });
+    const [confirmDialog, setConfirmDialog] = useState({
+        open: false,
+        mode: null,
+        agence: null,
+    });
     const canManageAgences = authService.canManageAgences();
 
     const fetchAgences = async () => {
@@ -66,6 +88,39 @@ const AgencesList = () => {
         }
     }, [showDeleted, fetchDeletedAgences]);
 
+    const filteredAgences = agences.filter((agence) => {
+        const query = filters.search.trim().toLowerCase();
+        const from = filters.from;
+        const to = filters.to;
+        const dateOnly = toDateOnly(agence.created_at);
+        const matchFrom = !from || (dateOnly && dateOnly >= from);
+        const matchTo = !to || (dateOnly && dateOnly <= to);
+        if (!matchFrom || !matchTo) {
+            return false;
+        }
+        if (!query) {
+            return true;
+        }
+        return [
+            agence.nom,
+            agence.code,
+            agence.ville,
+            agence.responsable_nom,
+        ].some((value) => String(value || '').toLowerCase().includes(query));
+    });
+
+    const filteredDeletedAgences = deletedAgences.filter((agence) => {
+        const query = filters.search.trim().toLowerCase();
+        if (!query) {
+            return true;
+        }
+        return [
+            agence.nom,
+            agence.code,
+            agence.ville,
+        ].some((value) => String(value || '').toLowerCase().includes(query));
+    });
+
     const handleToggleStatus = async (agence) => {
         try {
             if (agence.actif) {
@@ -77,34 +132,29 @@ const AgencesList = () => {
                 a.id === agence.id ? { ...a, actif: !agence.actif } : a
             )));
         } catch (err) {
-            alert(getErrorMessage(err, "Erreur lors du changement de statut."));
+            setError(getErrorMessage(err, "Erreur lors du changement de statut."));
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm("Supprimer cette agence ? Cette action applique un soft delete.")) {
-            try {
-                await agenceService.deleteAgence(id);
-                setAgences(agences.filter((a) => a.id !== id));
-
-                if (showDeleted) {
-                    fetchDeletedAgences();
-                }
-            } catch (err) {
-                alert(getErrorMessage(err, "Erreur lors de la suppression."));
+        try {
+            await agenceService.deleteAgence(id);
+            setAgences(agences.filter((a) => a.id !== id));
+            if (showDeleted) {
+                fetchDeletedAgences();
             }
+        } catch (err) {
+            setError(getErrorMessage(err, "Erreur lors de la suppression."));
         }
     };
 
     const handleRestore = async (id) => {
-        if (window.confirm("Restaurer cette agence supprimee ?")) {
-            try {
-                await agenceService.restoreAgence(id);
-                setDeletedAgences((prev) => prev.filter((a) => a.id !== id));
-                fetchAgences();
-            } catch (err) {
-                alert(getErrorMessage(err, "Erreur lors de la restauration de l'agence."));
-            }
+        try {
+            await agenceService.restoreAgence(id);
+            setDeletedAgences((prev) => prev.filter((a) => a.id !== id));
+            fetchAgences();
+        } catch (err) {
+            setDeletedError(getErrorMessage(err, "Erreur lors de la restauration de l'agence."));
         }
     };
 
@@ -149,6 +199,36 @@ const AgencesList = () => {
                 </div>
             )}
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <label className="text-xs font-semibold text-slate-600">
+                    Recherche
+                    <input
+                        value={filters.search}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        placeholder="Nom, code, ville, responsable..."
+                    />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                    Date creation du
+                    <input
+                        type="date"
+                        value={filters.from}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, from: event.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                    Date creation au
+                    <input
+                        type="date"
+                        value={filters.to}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, to: event.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                </label>
+            </div>
+
             <div className="shadow overflow-hidden border-b border-slate-200 sm:rounded-lg">
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
@@ -171,7 +251,7 @@ const AgencesList = () => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {agences.map((agence) => (
+                        {filteredAgences.map((agence) => (
                             <tr key={agence.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm font-bold text-slate-900">{agence.nom}</div>
@@ -202,7 +282,7 @@ const AgencesList = () => {
                                                 {agence.actif ? 'Desactiver' : 'Activer'}
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(agence.id)}
+                                                onClick={() => setConfirmDialog({ open: true, mode: 'delete', agence })}
                                                 className="text-red-600 hover:text-red-900 transition-colors"
                                             >
                                                 Supprimer
@@ -212,7 +292,7 @@ const AgencesList = () => {
                                 </td>
                             </tr>
                         ))}
-                        {agences.length === 0 && !loading && (
+                        {filteredAgences.length === 0 && !loading && (
                             <tr>
                                 <td colSpan="5" className="px-6 py-8 text-center text-sm text-slate-500">
                                     Aucune agence trouvee.
@@ -257,7 +337,7 @@ const AgencesList = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-slate-200">
-                                {deletedAgences.map((agence) => (
+                                {filteredDeletedAgences.map((agence) => (
                                     <tr key={agence.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-bold text-slate-900">{agence.nom}</div>
@@ -267,7 +347,7 @@ const AgencesList = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">{formatDateTime(agence.deleted_at)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <button
-                                                onClick={() => handleRestore(agence.id)}
+                                                onClick={() => setConfirmDialog({ open: true, mode: 'restore', agence })}
                                                 className="text-emerald-600 hover:text-emerald-900 transition-colors"
                                             >
                                                 Restaurer
@@ -275,7 +355,7 @@ const AgencesList = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {deletedAgences.length === 0 && !loadingDeleted && (
+                                {filteredDeletedAgences.length === 0 && !loadingDeleted && (
                                     <tr>
                                         <td colSpan="4" className="px-6 py-8 text-center text-sm text-slate-500">
                                             Aucune agence supprimee.
@@ -287,6 +367,33 @@ const AgencesList = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                open={confirmDialog.open}
+                title={confirmDialog.mode === 'restore' ? 'Confirmation de restauration' : 'Confirmation de suppression'}
+                message={
+                    confirmDialog.agence
+                        ? (
+                            confirmDialog.mode === 'restore'
+                                ? `Restaurer l'agence ${confirmDialog.agence.nom} ?`
+                                : `Supprimer l'agence ${confirmDialog.agence.nom} ?`
+                        )
+                        : 'Confirmer cette action ?'
+                }
+                confirmLabel={confirmDialog.mode === 'restore' ? 'Restaurer' : 'Supprimer'}
+                confirmClassName={confirmDialog.mode === 'restore' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}
+                onCancel={() => setConfirmDialog({ open: false, mode: null, agence: null })}
+                onConfirm={async () => {
+                    if (!confirmDialog.agence) {
+                        return;
+                    }
+                    if (confirmDialog.mode === 'restore') {
+                        await handleRestore(confirmDialog.agence.id);
+                    } else {
+                        await handleDelete(confirmDialog.agence.id);
+                    }
+                    setConfirmDialog({ open: false, mode: null, agence: null });
+                }}
+            />
         </div>
     );
 };

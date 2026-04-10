@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import fleetService from '../../../Services/fleetService';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 
 const initialForm = {
     nom: '',
@@ -8,6 +9,16 @@ const initialForm = {
 const MarquesSection = ({ marques, canEdit, executeAction }) => {
     const [formData, setFormData] = useState(initialForm);
     const [editingId, setEditingId] = useState(null);
+    const [search, setSearch] = useState('');
+    const [marqueToDelete, setMarqueToDelete] = useState(null);
+
+    const filteredMarques = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) {
+            return marques;
+        }
+        return marques.filter((marque) => String(marque.nom || '').toLowerCase().includes(query));
+    }, [marques, search]);
 
     const resetForm = () => {
         setFormData(initialForm);
@@ -45,9 +56,6 @@ const MarquesSection = ({ marques, canEdit, executeAction }) => {
     };
 
     const handleDelete = (id) => {
-        if (!window.confirm('Supprimer cette marque ?')) {
-            return;
-        }
         return executeAction(
             () => fleetService.deleteMarque(id),
             'Marque supprimee.',
@@ -101,6 +109,16 @@ const MarquesSection = ({ marques, canEdit, executeAction }) => {
                 </form>
             )}
 
+            <label className="block text-xs font-semibold text-slate-600">
+                Recherche
+                <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="mt-1 w-full md:max-w-sm px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    placeholder="Nom marque..."
+                />
+            </label>
+
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
@@ -111,7 +129,7 @@ const MarquesSection = ({ marques, canEdit, executeAction }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                        {marques.map((marque) => (
+                        {filteredMarques.map((marque) => (
                             <tr key={marque.id}>
                                 <td className="px-4 py-2 text-sm text-slate-700">{marque.id}</td>
                                 <td className="px-4 py-2 text-sm text-slate-900 font-medium">{marque.nom}</td>
@@ -120,23 +138,37 @@ const MarquesSection = ({ marques, canEdit, executeAction }) => {
                                         <button type="button" onClick={() => handleEdit(marque)} className="text-blue-600 hover:text-blue-800">
                                             Modifier
                                         </button>
-                                        <button type="button" onClick={() => handleDelete(marque.id)} className="text-red-600 hover:text-red-800">
+                                        <button type="button" onClick={() => setMarqueToDelete(marque)} className="text-red-600 hover:text-red-800">
                                             Supprimer
                                         </button>
                                     </td>
                                 )}
                             </tr>
                         ))}
-                        {marques.length === 0 && (
+                        {filteredMarques.length === 0 && (
                             <tr>
                                 <td colSpan={canEdit ? 3 : 2} className="px-4 py-6 text-center text-sm text-slate-500">
-                                    Aucune marque disponible.
+                                    Aucune marque trouvee.
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+            <ConfirmDialog
+                open={Boolean(marqueToDelete)}
+                title="Confirmation de suppression"
+                message={marqueToDelete ? `Supprimer la marque "${marqueToDelete.nom}" ?` : 'Supprimer cette marque ?'}
+                confirmLabel="Supprimer"
+                onCancel={() => setMarqueToDelete(null)}
+                onConfirm={async () => {
+                    if (!marqueToDelete) {
+                        return;
+                    }
+                    await handleDelete(marqueToDelete.id);
+                    setMarqueToDelete(null);
+                }}
+            />
         </section>
     );
 };

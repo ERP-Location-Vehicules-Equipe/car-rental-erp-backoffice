@@ -1,7 +1,10 @@
+from io import BytesIO
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
+from sqlalchemy.orm import Session
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 from Model.FinanceModels import Facture
 from Schemas.FinanceSchemas import CreateFactureSchema, UpdateFactureSchema
@@ -78,10 +81,10 @@ def get_facture_by_id(facture_id: int, db: Session):
 def update_facture(facture_id: int, data: UpdateFactureSchema, db: Session):
     facture = get_facture_by_id(facture_id, db)
 
-    if data.statut:
+    if data.statut is not None:
         facture.statut = data.statut
 
-    if data.montant_ht:
+    if data.montant_ht is not None:
         tva = data.tva if data.tva is not None else facture.tva
         facture.montant_ht = data.montant_ht
         facture.tva = tva
@@ -131,3 +134,38 @@ def restore_facture(facture_id: int, db: Session):
     db.commit()
 
     return {"message": "Facture restored successfully"}
+
+
+def generate_facture_pdf(facture_id: int, db: Session) -> bytes:
+    facture = get_facture_by_id(facture_id, db)
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    y = height - 60
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawString(50, y, "Facture")
+    y -= 30
+
+    pdf.setFont("Helvetica", 11)
+    lines = [
+        f"Numero: {facture.numero}",
+        f"Facture ID: {facture.id}",
+        f"Location ID: {facture.location_id}",
+        f"Date emission: {facture.date_emission.strftime('%Y-%m-%d %H:%M:%S') if facture.date_emission else '-'}",
+        f"Statut: {facture.statut}",
+        "",
+        f"Montant HT: {facture.montant_ht}",
+        f"TVA (%): {facture.tva}",
+        f"Montant TTC: {facture.montant_ttc}",
+    ]
+
+    for line in lines:
+        pdf.drawString(50, y, line)
+        y -= 20
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer.getvalue()

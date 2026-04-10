@@ -10,12 +10,20 @@ from Schemas.FinanceSchemas import (
     CreatePaiementSchema, PaiementResponseSchema, PaiementListResponseSchema
 )
 
-from dependencies.FinanceDependencies import get_current_user, admin_required, employee_required
+from dependencies.FinanceDependencies import (
+    admin_or_super_admin_required,
+    employee_or_admin_required,
+    get_current_user,
+)
 
 router = APIRouter(prefix="/paiements", tags=["Paiements"])
 
 @router.post("/", response_model=PaiementResponseSchema)
-def create(data: CreatePaiementSchema, db: Session = Depends(get_db), user=Depends(employee_required)):
+def create(
+    data: CreatePaiementSchema,
+    db: Session = Depends(get_db),
+    user=Depends(employee_or_admin_required),
+):
     return create_paiement(data, db)
 
 @router.get("/", response_model=PaiementListResponseSchema)
@@ -31,5 +39,9 @@ def get_one(paiement_id: int, db: Session = Depends(get_db), user=Depends(get_cu
     return get_paiement_by_id(paiement_id, db)
 
 @router.delete("/{paiement_id}")
-def delete(paiement_id: int, db: Session = Depends(get_db), admin=Depends(admin_required)):
+def delete(
+    paiement_id: int,
+    db: Session = Depends(get_db),
+    admin=Depends(admin_or_super_admin_required),
+):
     return delete_paiement(paiement_id, db)

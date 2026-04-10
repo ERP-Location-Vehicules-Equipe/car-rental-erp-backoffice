@@ -205,8 +205,10 @@ const FleetManagement = () => {
                     vehicles={vehicles}
                     categories={categories}
                     modeles={modeles}
+                    marques={marques}
                     agences={agences}
                     canManageVehicles={canManageVehicles}
+                    canCreateLocation={isSuperAdmin || isAdmin || currentUser?.role === authService.ROLE_EMPLOYE}
                     isSuperAdmin={isSuperAdmin}
                     userAgenceId={userAgenceId}
                     executeAction={executeAction}
@@ -217,6 +219,8 @@ const FleetManagement = () => {
                 <EntretiensSection
                     entretiens={entretiens}
                     vehicles={vehicles}
+                    modeles={modeles}
+                    marques={marques}
                     canManage={canManageEntretiens}
                     executeAction={executeAction}
                 />

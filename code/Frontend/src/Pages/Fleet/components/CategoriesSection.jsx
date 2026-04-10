@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import fleetService from '../../../Services/fleetService';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 
 const initialForm = {
     libelle: '',
@@ -9,6 +10,19 @@ const initialForm = {
 const CategoriesSection = ({ categories, canEdit, executeAction }) => {
     const [formData, setFormData] = useState(initialForm);
     const [editingId, setEditingId] = useState(null);
+    const [search, setSearch] = useState('');
+    const [categoryToDelete, setCategoryToDelete] = useState(null);
+
+    const filteredCategories = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) {
+            return categories;
+        }
+        return categories.filter((category) => {
+            return [category.libelle, category.tarif_jour_base]
+                .some((value) => String(value || '').toLowerCase().includes(query));
+        });
+    }, [categories, search]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -63,9 +77,6 @@ const CategoriesSection = ({ categories, canEdit, executeAction }) => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Supprimer cette categorie ?')) {
-            return;
-        }
         return executeAction(
             () => fleetService.deleteCategory(id),
             'Categorie supprimee.',
@@ -133,6 +144,16 @@ const CategoriesSection = ({ categories, canEdit, executeAction }) => {
                 </form>
             )}
 
+            <label className="block text-xs font-semibold text-slate-600">
+                Recherche
+                <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="mt-1 w-full md:max-w-sm px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    placeholder="Libelle..."
+                />
+            </label>
+
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
@@ -144,7 +165,7 @@ const CategoriesSection = ({ categories, canEdit, executeAction }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                        {categories.map((category) => (
+                        {filteredCategories.map((category) => (
                             <tr key={category.id}>
                                 <td className="px-4 py-2 text-sm text-slate-700">{category.id}</td>
                                 <td className="px-4 py-2 text-sm text-slate-900 font-medium">{category.libelle}</td>
@@ -154,23 +175,37 @@ const CategoriesSection = ({ categories, canEdit, executeAction }) => {
                                         <button type="button" onClick={() => handleEdit(category)} className="text-blue-600 hover:text-blue-800">
                                             Modifier
                                         </button>
-                                        <button type="button" onClick={() => handleDelete(category.id)} className="text-red-600 hover:text-red-800">
+                                        <button type="button" onClick={() => setCategoryToDelete(category)} className="text-red-600 hover:text-red-800">
                                             Supprimer
                                         </button>
                                     </td>
                                 )}
                             </tr>
                         ))}
-                        {categories.length === 0 && (
+                        {filteredCategories.length === 0 && (
                             <tr>
                                 <td colSpan={canEdit ? 4 : 3} className="px-4 py-6 text-center text-sm text-slate-500">
-                                    Aucune categorie disponible.
+                                    Aucune categorie trouvee.
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+            <ConfirmDialog
+                open={Boolean(categoryToDelete)}
+                title="Confirmation de suppression"
+                message={categoryToDelete ? `Supprimer la categorie "${categoryToDelete.libelle}" ?` : 'Supprimer cette categorie ?'}
+                confirmLabel="Supprimer"
+                onCancel={() => setCategoryToDelete(null)}
+                onConfirm={async () => {
+                    if (!categoryToDelete) {
+                        return;
+                    }
+                    await handleDelete(categoryToDelete.id);
+                    setCategoryToDelete(null);
+                }}
+            />
         </section>
     );
 };

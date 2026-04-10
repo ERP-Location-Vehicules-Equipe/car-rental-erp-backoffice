@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 
 import authService from './Services/authService';
 import userService from './Services/userService';
@@ -19,25 +19,15 @@ import AgencesList from './Pages/Agences/AgencesList';
 import CreateAgence from './Pages/Agences/CreateAgence';
 import EditAgence from './Pages/Agences/EditAgence';
 import AgenceDetail from './Pages/Agences/AgenceDetail';
-import TransferListPage from './Pages/TransferListPage';
-import TransferCreatePage from './Pages/TransferCreatePage';
 import FleetManagement from './Pages/Fleet/FleetManagement';
+import VehicleDetailPage from './Pages/Fleet/VehicleDetailPage';
+import EntretienDetailPage from './Pages/Fleet/EntretienDetailPage';
 import LocationsManagement from './Pages/Locations/LocationsManagement';
-
-function TransferListRoute() {
-    const navigate = useNavigate();
-    return <TransferListPage onCreateClick={() => navigate('/transferts/create')} />;
-}
-
-function TransferCreateRoute() {
-    const navigate = useNavigate();
-    return (
-        <TransferCreatePage
-            onBackToList={() => navigate('/transferts')}
-            onCreated={() => navigate('/transferts')}
-        />
-    );
-}
+import LocationDetailPage from './Pages/Locations/LocationDetailPage';
+import TransfersManagement from './Pages/Transfers/TransfersManagement';
+import TransferDetailPage from './Pages/Transfers/TransferDetailPage';
+import FinanceManagement from './Pages/Finance/FinanceManagement';
+import NotificationsManagement from './Pages/Notifications/NotificationsManagement';
 
 function App() {
     const [isInitializing, setIsInitializing] = useState(true);
@@ -97,9 +87,14 @@ function App() {
                     <Route path="/agences" element={<AgencesList />} />
                     <Route path="/agences/:id" element={<AgenceDetail />} />
                     <Route path="/fleet" element={<FleetManagement />} />
+                    <Route path="/fleet/vehicles/:id" element={<VehicleDetailPage />} />
+                    <Route path="/fleet/entretiens/:id" element={<EntretienDetailPage />} />
                     <Route path="/locations" element={<LocationsManagement />} />
-                    <Route path="/transferts" element={<TransferListRoute />} />
-                    <Route path="/transferts/create" element={<TransferCreateRoute />} />
+                    <Route path="/locations/:id" element={<LocationDetailPage />} />
+                    <Route path="/transferts" element={<TransfersManagement />} />
+                    <Route path="/transferts/:id" element={<TransferDetailPage />} />
+                    <Route path="/finance" element={<FinanceManagement />} />
+                    <Route path="/notifications" element={<NotificationsManagement />} />
 
                     <Route
                         path="/agences/create"

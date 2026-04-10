@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import userService from '../../Services/userService';
 import { getAgencesCachedSafe, getAgenceNameById } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
 const getRoleBadge = (role) => {
     if (role === 'super_admin') {
@@ -14,12 +15,29 @@ const getRoleBadge = (role) => {
     return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
 };
 
+const toDateOnly = (value) => {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    return date.toISOString().slice(0, 10);
+};
+
 const UsersList = () => {
     const [users, setUsers] = useState([]);
     const [agences, setAgences] = useState([]);
     const [agenceWarning, setAgenceWarning] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [userToDelete, setUserToDelete] = useState(null);
+    const [filters, setFilters] = useState({
+        search: '',
+        from: '',
+        to: '',
+    });
 
     const fetchUsersAndOptionalAgences = async () => {
         try {
@@ -55,6 +73,29 @@ const UsersList = () => {
         return map;
     }, [agences]);
 
+    const filteredUsers = useMemo(() => {
+        const query = filters.search.trim().toLowerCase();
+        const from = filters.from;
+        const to = filters.to;
+        return users.filter((user) => {
+            const dateOnly = toDateOnly(user.created_at);
+            const matchFrom = !from || (dateOnly && dateOnly >= from);
+            const matchTo = !to || (dateOnly && dateOnly <= to);
+            if (!matchFrom || !matchTo) {
+                return false;
+            }
+            if (!query) {
+                return true;
+            }
+            return [
+                user.nom,
+                user.email,
+                user.role,
+                agenceNameMap[Number(user.agence_id)] || '',
+            ].some((value) => String(value || '').toLowerCase().includes(query));
+        });
+    }, [agenceNameMap, filters.from, filters.search, filters.to, users]);
+
     const handleToggleStatus = async (user) => {
         try {
             if (user.actif) {
@@ -64,18 +105,16 @@ const UsersList = () => {
             }
             setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, actif: !user.actif } : u)));
         } catch (err) {
-            alert(getErrorMessage(err, "Erreur lors du changement de statut."));
+            setError(getErrorMessage(err, "Erreur lors du changement de statut."));
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm("Etes-vous sur de vouloir supprimer cet utilisateur ?")) {
-            try {
-                await userService.deleteUser(id);
-                setUsers((prev) => prev.filter((u) => u.id !== id));
-            } catch (err) {
-                alert(getErrorMessage(err, "Erreur lors de la suppression."));
-            }
+        try {
+            await userService.deleteUser(id);
+            setUsers((prev) => prev.filter((u) => u.id !== id));
+        } catch (err) {
+            setError(getErrorMessage(err, "Erreur lors de la suppression."));
         }
     };
 
@@ -115,6 +154,36 @@ const UsersList = () => {
                 </div>
             )}
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <label className="text-xs font-semibold text-slate-600">
+                    Recherche
+                    <input
+                        value={filters.search}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        placeholder="Nom, email, role, agence..."
+                    />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                    Date creation du
+                    <input
+                        type="date"
+                        value={filters.from}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, from: event.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                    Date creation au
+                    <input
+                        type="date"
+                        value={filters.to}
+                        onChange={(event) => setFilters((prev) => ({ ...prev, to: event.target.value }))}
+                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                </label>
+            </div>
+
             <div className="shadow overflow-hidden border-b border-slate-200 sm:rounded-lg">
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
@@ -137,7 +206,7 @@ const UsersList = () => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {users.map((user) => (
+                        {filteredUsers.map((user) => (
                             <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm font-bold text-slate-900">{user.nom}</div>
@@ -174,7 +243,7 @@ const UsersList = () => {
                                         {user.actif ? 'Desactiver' : 'Activer'}
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(user.id)}
+                                        onClick={() => setUserToDelete(user)}
                                         className="text-red-600 hover:text-red-900 transition-colors"
                                     >
                                         Supprimer
@@ -182,7 +251,7 @@ const UsersList = () => {
                                 </td>
                             </tr>
                         ))}
-                        {users.length === 0 && !loading && (
+                        {filteredUsers.length === 0 && !loading && (
                             <tr>
                                 <td colSpan="5" className="px-6 py-8 text-center text-sm text-slate-500">
                                     Aucun utilisateur trouve.
@@ -192,6 +261,20 @@ const UsersList = () => {
                     </tbody>
                 </table>
             </div>
+            <ConfirmDialog
+                open={Boolean(userToDelete)}
+                title="Confirmation de suppression"
+                message={userToDelete ? `Supprimer l'utilisateur ${userToDelete.nom} ?` : 'Supprimer cet utilisateur ?'}
+                confirmLabel="Supprimer"
+                onCancel={() => setUserToDelete(null)}
+                onConfirm={async () => {
+                    if (!userToDelete) {
+                        return;
+                    }
+                    await handleDelete(userToDelete.id);
+                    setUserToDelete(null);
+                }}
+            />
         </div>
     );
 };

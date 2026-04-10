@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 
 from models.entretien import VehicleEntretien
 from models.vehicle import Vehicle
-from schemas.vehicle_schema import VehicleCreate, VehicleStatusUpdate, VehicleUpdate
+from schemas.vehicle_schema import (
+    VehicleCreate,
+    VehicleStatus,
+    VehicleStatusUpdate,
+    VehicleUpdate,
+)
 
 
 def get_next_available_vehicle_id(db: Session) -> int:
@@ -24,6 +29,19 @@ def get_all_vehicles(db: Session, agence_id: int | None = None):
     query = db.query(Vehicle)
     if agence_id is not None:
         query = query.filter(Vehicle.agence_id == agence_id)
+    return query.order_by(Vehicle.id.asc()).all()
+
+
+def get_available_vehicles_for_transfer(
+    db: Session,
+    source_agence_id: int | None = None,
+    exclude_agence_id: int | None = None,
+):
+    query = db.query(Vehicle).filter(Vehicle.statut == VehicleStatus.DISPONIBLE.value)
+    if source_agence_id is not None:
+        query = query.filter(Vehicle.agence_id == source_agence_id)
+    if exclude_agence_id is not None:
+        query = query.filter(Vehicle.agence_id != exclude_agence_id)
     return query.order_by(Vehicle.id.asc()).all()
 
 

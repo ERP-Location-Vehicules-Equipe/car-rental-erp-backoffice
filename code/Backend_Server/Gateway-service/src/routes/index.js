@@ -5,8 +5,11 @@ dotenv.config();
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:8000";
 const AGENCE_SERVICE_URL = process.env.AGENCE_SERVICE_URL || "http://localhost:8002";
+const FINANCE_SERVICE_URL = process.env.FINANCE_SERVICE_URL || "http://localhost:8003";
 const FLEET_SERVICE_URL = process.env.FLEET_SERVICE_URL || "http://localhost:8004";
 const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || "http://localhost:8005";
+const TRANSFER_SERVICE_URL = process.env.TRANSFER_SERVICE_URL || "http://localhost:8008";
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || "http://localhost:8006";
 
 const buildProxy = (target, upstreamBasePath, serviceName) =>
   createProxyMiddleware({
@@ -70,6 +73,15 @@ export const agenceProxy = buildProxy(
 );
 
 // ==============================
+// FINANCE SERVICE PROXY
+// ==============================
+export const financeProxy = buildProxy(
+  FINANCE_SERVICE_URL,
+  "/api",
+  "Finance service"
+);
+
+// ==============================
 // FLEET SERVICE PROXY
 // ==============================
 export const fleetProxy = buildProxy(
@@ -88,4 +100,23 @@ export const locationProxy = buildProxy(
   // The app mounts this proxy on /api/location, so upstream should receive /locations routes directly.
   "",
   "Location service"
+);
+
+// ==============================
+// TRANSFER SERVICE PROXY
+// ==============================
+export const transferProxy = buildProxy(
+  TRANSFER_SERVICE_URL,
+  // The app mounts this proxy on /api/transfer, so upstream should receive /transferts routes directly.
+  "",
+  "Transfer service"
+);
+
+// ==============================
+// NOTIFICATION SERVICE PROXY
+// ==============================
+export const notificationProxy = buildProxy(
+  NOTIFICATION_SERVICE_URL,
+  "/notifications",
+  "Notification service"
 );

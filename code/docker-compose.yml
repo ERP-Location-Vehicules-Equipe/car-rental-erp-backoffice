@@ -72,6 +72,9 @@ services:
     depends_on:
       - auth_service
       - agence_service
+      - finance_service
+      - transfer_service
+      - notification_service
   agence_service:
     build: ./Backend_Server/Agence-service
     container_name: agence_microservice
@@ -127,6 +130,8 @@ services:
     ports:
       - "8006:8006"
     depends_on:
+      postgres_db:
+        condition: service_started
       rabbitmq:
         condition: service_healthy
 

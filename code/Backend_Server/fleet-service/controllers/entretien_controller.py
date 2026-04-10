@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -6,6 +7,7 @@ from dependencies.auth import (
     AuthContext,
     admin_or_super_admin_required,
     get_current_user,
+    security,
 )
 from schemas.entretien_schema import (
     EntretienCreate,
@@ -30,10 +32,15 @@ def create_entretien_endpoint(
     entretien_data: EntretienCreate,
     db: Session = Depends(get_db),
     current_user: AuthContext = Depends(admin_or_super_admin_required),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     if current_user.is_admin:
         assert_vehicle_in_agence(db, entretien_data.vehicle_id, current_user.agence_id)
-    return create_entretien(db, entretien_data)
+    return create_entretien(
+        db,
+        entretien_data,
+        finance_token=credentials.credentials,
+    )
 
 
 @router.get("/entretiens/", response_model=list[EntretienResponse])

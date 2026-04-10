@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import authService from '../../Services/authService';
 import fleetService from '../../Services/fleetService';
 import locationService from '../../Services/locationService';
 import { getAgencesCachedSafe } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import DateTimeInputDialog from '../../components/ui/DateTimeInputDialog';
 
 const STATUS_OPTIONS = ['en_cours', 'terminee', 'annulee'];
 
@@ -51,7 +54,20 @@ const formatDateTime = (value) => {
     return date.toLocaleString();
 };
 
+const toDateOnly = (value) => {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    return date.toISOString().slice(0, 10);
+};
+
 const LocationsManagement = () => {
+    const routeLocation = useLocation();
+    const navigate = useNavigate();
     const currentUser = authService.getCurrentUser();
     const isSuperAdmin = currentUser?.role === authService.ROLE_SUPER_ADMIN;
     const isAdmin = currentUser?.role === authService.ROLE_ADMIN;
@@ -62,6 +78,7 @@ const LocationsManagement = () => {
     const canChangeStatus = isSuperAdmin || isAdmin || isEmploye;
     const canManageAdvanced = isSuperAdmin || isAdmin;
     const canDeleteLocation = isSuperAdmin || isAdmin;
+    const showActionsColumn = true;
 
     const [locations, setLocations] = useState([]);
     const [stats, setStats] = useState({
@@ -72,6 +89,8 @@ const LocationsManagement = () => {
         revenue: 0,
     });
     const [vehicles, setVehicles] = useState([]);
+    const [modeles, setModeles] = useState([]);
+    const [marques, setMarques] = useState([]);
     const [agences, setAgences] = useState([]);
     const [agenceWarning, setAgenceWarning] = useState('');
 
@@ -82,6 +101,34 @@ const LocationsManagement = () => {
 
     const [formData, setFormData] = useState(emptyForm);
     const [editingId, setEditingId] = useState(null);
+    const [prefillApplied, setPrefillApplied] = useState(false);
+    const [filters, setFilters] = useState({
+        search: '',
+        from: '',
+        to: '',
+    });
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [locationToDelete, setLocationToDelete] = useState(null);
+    const [dateDialog, setDateDialog] = useState({
+        open: false,
+        mode: null,
+        locationId: null,
+        value: '',
+        loading: false,
+    });
+
+    const preselectedVehicleId = useMemo(() => {
+        const params = new URLSearchParams(routeLocation.search || '');
+        const rawVehicleId = params.get('vehicle_id');
+        if (!rawVehicleId) {
+            return null;
+        }
+        const parsed = Number(rawVehicleId);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+            return null;
+        }
+        return parsed;
+    }, [routeLocation.search]);
 
     const agenceById = useMemo(() => {
         return agences.reduce((acc, agence) => {
@@ -97,6 +144,45 @@ const LocationsManagement = () => {
         }, {});
     }, [vehicles]);
 
+    const modeleById = useMemo(() => {
+        return modeles.reduce((acc, modele) => {
+            acc[Number(modele.id)] = modele;
+            return acc;
+        }, {});
+    }, [modeles]);
+
+    const marqueById = useMemo(() => {
+        return marques.reduce((acc, marque) => {
+            acc[Number(marque.id)] = marque;
+            return acc;
+        }, {});
+    }, [marques]);
+
+    const getVehicleLabel = useCallback((vehicle) => {
+        if (!vehicle) {
+            return 'Vehicule inconnu';
+        }
+
+        const modele = modeleById[Number(vehicle.modele_id)];
+        const marque = modele ? marqueById[Number(modele.marque_id)] : null;
+
+        const marqueNom = marque?.nom || '';
+        const modeleNom = modele?.nom || '';
+        const immat = vehicle.immatriculation || '';
+
+        const base = `${marqueNom} ${modeleNom}`.trim();
+        if (base && immat) {
+            return `${base} (${immat})`;
+        }
+        if (base) {
+            return base;
+        }
+        if (immat) {
+            return immat;
+        }
+        return `Vehicule #${vehicle.id}`;
+    }, [marqueById, modeleById]);
+
     const scopeAgenceLabel = useMemo(() => {
         if (isSuperAdmin) {
             return 'Globale';
@@ -106,6 +192,34 @@ const LocationsManagement = () => {
         }
         return agenceById[Number(userAgenceId)] || "Pas d'agence";
     }, [agenceById, isSuperAdmin, userAgenceId]);
+
+    const filteredLocations = useMemo(() => {
+        const query = filters.search.trim().toLowerCase();
+        const from = filters.from;
+        const to = filters.to;
+
+        return locations.filter((location) => {
+            const dateOnly = toDateOnly(location.date_debut);
+            const matchFrom = !from || (dateOnly && dateOnly >= from);
+            const matchTo = !to || (dateOnly && dateOnly <= to);
+            if (!matchFrom || !matchTo) {
+                return false;
+            }
+            if (!query) {
+                return true;
+            }
+            const vehicleLabel = getVehicleLabel(vehicleById[Number(location.vehicle_id)]);
+            return [
+                location.id,
+                location.client_id,
+                location.etat,
+                vehicleLabel,
+                agenceById[Number(location.agence_depart_id)] || '',
+                agenceById[Number(location.agence_retour_id)] || '',
+                location.montant_total,
+            ].some((value) => String(value || '').toLowerCase().includes(query));
+        });
+    }, [agenceById, filters.from, filters.search, filters.to, getVehicleLabel, locations, vehicleById]);
 
     const resetForm = useCallback(() => {
         setFormData({
@@ -129,11 +243,15 @@ const LocationsManagement = () => {
                 locationsData,
                 statsData,
                 vehiclesData,
+                modelesData,
+                marquesData,
                 agencesResult,
             ] = await Promise.all([
                 locationService.getLocations(),
                 locationService.getLocationStats(),
                 fleetService.getVehicles(),
+                fleetService.getModeles(),
+                fleetService.getMarques(),
                 getAgencesCachedSafe(),
             ]);
 
@@ -146,6 +264,8 @@ const LocationsManagement = () => {
                 revenue: Number(statsData?.revenue || 0),
             });
             setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
+            setModeles(Array.isArray(modelesData) ? modelesData : []);
+            setMarques(Array.isArray(marquesData) ? marquesData : []);
             setAgences(Array.isArray(agencesResult.agences) ? agencesResult.agences : []);
             setAgenceWarning(
                 agencesResult.available
@@ -167,6 +287,37 @@ const LocationsManagement = () => {
     useEffect(() => {
         resetForm();
     }, [resetForm]);
+
+    useEffect(() => {
+        setPrefillApplied(false);
+    }, [routeLocation.search]);
+
+    useEffect(() => {
+        if (prefillApplied || editingId || !preselectedVehicleId) {
+            return;
+        }
+
+        const selectedVehicle = vehicleById[Number(preselectedVehicleId)];
+        if (!selectedVehicle) {
+            return;
+        }
+
+        setFormData((prev) => {
+            const next = {
+                ...prev,
+                vehicle_id: String(preselectedVehicleId),
+            };
+            if (selectedVehicle?.prix_location != null) {
+                next.tarif_jour = String(selectedVehicle.prix_location);
+            }
+            if (isSuperAdmin && selectedVehicle?.agence_id) {
+                next.agence_depart_id = String(selectedVehicle.agence_id);
+            }
+            return next;
+        });
+        setNotice('Vehicule preselectionne depuis Gestion Parc.');
+        setPrefillApplied(true);
+    }, [editingId, isSuperAdmin, prefillApplied, preselectedVehicleId, vehicleById]);
 
     const runAction = async (fn, successMessage, fallbackError, onSuccess) => {
         setError('');
@@ -266,9 +417,6 @@ const LocationsManagement = () => {
     };
 
     const handleDelete = async (locationId) => {
-        if (!window.confirm('Supprimer cette location ?')) {
-            return;
-        }
         await runAction(
             () => locationService.deleteLocation(locationId),
             'Location supprimee.',
@@ -284,38 +432,74 @@ const LocationsManagement = () => {
         );
     };
 
-    const handleReturn = async (locationId) => {
-        const value = window.prompt('Date retour reelle (format: YYYY-MM-DDTHH:mm), exemple: 2026-04-10T14:30');
-        if (!value) {
-            return;
-        }
-        const parsed = toIsoOrNull(value);
-        if (!parsed) {
-            setError('Format de date invalide pour le retour.');
-            return;
-        }
-        await runAction(
-            () => locationService.processReturn(locationId, parsed),
-            'Retour location traite avec succes.',
-            'Impossible de traiter le retour.',
-        );
+    const openReturnDialog = (locationId) => {
+        setDateDialog({
+            open: true,
+            mode: 'return',
+            locationId,
+            value: '',
+            loading: false,
+        });
     };
 
-    const handleExtend = async (locationId) => {
-        const value = window.prompt('Nouvelle date fin prevue (format: YYYY-MM-DDTHH:mm), exemple: 2026-04-12T10:00');
-        if (!value) {
+    const openExtendDialog = (locationId) => {
+        setDateDialog({
+            open: true,
+            mode: 'extend',
+            locationId,
+            value: '',
+            loading: false,
+        });
+    };
+
+    const closeDateDialog = () => {
+        if (dateDialog.loading) {
             return;
         }
-        const parsed = toIsoOrNull(value);
-        if (!parsed) {
-            setError('Format de date invalide pour la prolongation.');
+        setDateDialog((prev) => ({ ...prev, open: false }));
+    };
+
+    const confirmDateDialog = async () => {
+        const parsed = toIsoOrNull(dateDialog.value);
+        if (!parsed || !dateDialog.locationId) {
+            setError('Format de date invalide.');
             return;
         }
-        await runAction(
-            () => locationService.extendLocation(locationId, parsed),
-            'Location prolongee avec succes.',
-            'Impossible de prolonger la location.',
-        );
+        setDateDialog((prev) => ({ ...prev, loading: true }));
+        if (dateDialog.mode === 'return') {
+            await runAction(
+                () => locationService.processReturn(dateDialog.locationId, parsed),
+                'Retour location traite avec succes.',
+                'Impossible de traiter le retour.',
+            );
+        } else if (dateDialog.mode === 'extend') {
+            await runAction(
+                () => locationService.extendLocation(dateDialog.locationId, parsed),
+                'Location prolongee avec succes.',
+                'Impossible de prolonger la location.',
+            );
+        }
+        setDateDialog({
+            open: false,
+            mode: null,
+            locationId: null,
+            value: '',
+            loading: false,
+        });
+    };
+
+    const requestDelete = (location) => {
+        setLocationToDelete(location);
+        setDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!locationToDelete) {
+            return;
+        }
+        await handleDelete(locationToDelete.id);
+        setDeleteDialogOpen(false);
+        setLocationToDelete(null);
     };
 
     if (loading) {
@@ -421,7 +605,7 @@ const LocationsManagement = () => {
                                 <option value="">Selectionner</option>
                                 {vehicles.map((vehicle) => (
                                     <option key={vehicle.id} value={vehicle.id}>
-                                        {vehicle.immatriculation} - {agenceById[Number(vehicle.agence_id)] || "Pas d'agence"}
+                                        {getVehicleLabel(vehicle)} - {agenceById[Number(vehicle.agence_id)] || "Pas d'agence"}
                                     </option>
                                 ))}
                             </select>
@@ -518,6 +702,35 @@ const LocationsManagement = () => {
 
             <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Liste des Locations</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <label className="text-xs font-semibold text-slate-600">
+                        Recherche
+                        <input
+                            value={filters.search}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="Vehicule, agence, statut, client..."
+                        />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                        Date debut du
+                        <input
+                            type="date"
+                            value={filters.from}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, from: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                        Date debut au
+                        <input
+                            type="date"
+                            value={filters.to}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, to: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </label>
+                </div>
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
@@ -529,17 +742,17 @@ const LocationsManagement = () => {
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Periode</th>
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Total</th>
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Etat</th>
-                                {(canEditLocation || canDeleteLocation) && (
+                                {showActionsColumn && (
                                     <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
                                 )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
-                            {locations.map((location) => (
+                            {filteredLocations.map((location) => (
                                 <tr key={location.id}>
                                     <td className="px-4 py-2 text-sm text-slate-700">{location.id}</td>
                                     <td className="px-4 py-2 text-sm text-slate-900 font-medium">
-                                        {vehicleById[Number(location.vehicle_id)]?.immatriculation || `Vehicule #${location.vehicle_id}`}
+                                        {getVehicleLabel(vehicleById[Number(location.vehicle_id)])}
                                     </td>
                                     <td className="px-4 py-2 text-sm text-slate-700">
                                         {agenceById[Number(location.agence_depart_id)] || "Pas d'agence"}
@@ -565,25 +778,32 @@ const LocationsManagement = () => {
                                             </select>
                                         ) : location.etat}
                                     </td>
-                                    {(canEditLocation || canDeleteLocation) && (
+                                    {showActionsColumn && (
                                         <td className="px-4 py-2 text-right text-sm space-x-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate(`/locations/${location.id}`)}
+                                                className="text-slate-700 hover:text-slate-900"
+                                            >
+                                                Details
+                                            </button>
                                             {canEditLocation && (
                                                 <button type="button" onClick={() => handleEdit(location)} className="text-blue-600 hover:text-blue-800">
                                                     Modifier
                                                 </button>
                                             )}
                                             {canManageAdvanced && (
-                                                <>
-                                                    <button type="button" onClick={() => handleReturn(location.id)} className="text-emerald-600 hover:text-emerald-800">
+                                                    <>
+                                                    <button type="button" onClick={() => openReturnDialog(location.id)} className="text-emerald-600 hover:text-emerald-800">
                                                         Retour
                                                     </button>
-                                                    <button type="button" onClick={() => handleExtend(location.id)} className="text-indigo-600 hover:text-indigo-800">
+                                                    <button type="button" onClick={() => openExtendDialog(location.id)} className="text-indigo-600 hover:text-indigo-800">
                                                         Prolonger
                                                     </button>
                                                 </>
                                             )}
                                             {canDeleteLocation && (
-                                                <button type="button" onClick={() => handleDelete(location.id)} className="text-red-600 hover:text-red-800">
+                                                <button type="button" onClick={() => requestDelete(location)} className="text-red-600 hover:text-red-800">
                                                     Supprimer
                                                 </button>
                                             )}
@@ -591,10 +811,10 @@ const LocationsManagement = () => {
                                     )}
                                 </tr>
                             ))}
-                            {locations.length === 0 && (
+                            {filteredLocations.length === 0 && (
                                 <tr>
-                                    <td colSpan={(canEditLocation || canDeleteLocation) ? 8 : 7} className="px-4 py-6 text-center text-sm text-slate-500">
-                                        Aucune location disponible.
+                                    <td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-500">
+                                        Aucune location trouvee.
                                     </td>
                                 </tr>
                             )}
@@ -602,6 +822,27 @@ const LocationsManagement = () => {
                     </table>
                 </div>
             </section>
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                title="Confirmation de suppression"
+                message={locationToDelete ? `Supprimer la location #${locationToDelete.id} ?` : 'Supprimer cette location ?'}
+                confirmLabel="Supprimer"
+                onCancel={() => {
+                    setDeleteDialogOpen(false);
+                    setLocationToDelete(null);
+                }}
+                onConfirm={confirmDelete}
+            />
+            <DateTimeInputDialog
+                open={dateDialog.open}
+                title={dateDialog.mode === 'return' ? 'Retour de location' : 'Prolonger location'}
+                label={dateDialog.mode === 'return' ? 'Date retour reelle' : 'Nouvelle date fin prevue'}
+                value={dateDialog.value}
+                loading={dateDialog.loading}
+                onChange={(value) => setDateDialog((prev) => ({ ...prev, value }))}
+                onCancel={closeDateDialog}
+                onSubmit={confirmDateDialog}
+            />
         </div>
     );
 };

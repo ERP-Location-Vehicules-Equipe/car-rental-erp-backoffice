@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import fleetService from '../../../Services/fleetService';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 
 const initialForm = {
     nom: '',
@@ -9,6 +10,8 @@ const initialForm = {
 const ModelesSection = ({ modeles, marques, canEdit, executeAction }) => {
     const [formData, setFormData] = useState(initialForm);
     const [editingId, setEditingId] = useState(null);
+    const [search, setSearch] = useState('');
+    const [modeleToDelete, setModeleToDelete] = useState(null);
 
     const marqueNameById = useMemo(() => {
         return (marques || []).reduce((acc, item) => {
@@ -21,6 +24,19 @@ const ModelesSection = ({ modeles, marques, canEdit, executeAction }) => {
         setFormData(initialForm);
         setEditingId(null);
     };
+
+    const filteredModeles = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) {
+            return modeles;
+        }
+        return modeles.filter((modele) => {
+            return [
+                modele.nom,
+                marqueNameById[Number(modele.marque_id)] || '',
+            ].some((value) => String(value || '').toLowerCase().includes(query));
+        });
+    }, [marqueNameById, modeles, search]);
 
     const handleSubmit = (event) => {
         event.preventDefault();
@@ -75,9 +91,6 @@ const ModelesSection = ({ modeles, marques, canEdit, executeAction }) => {
     };
 
     const handleDelete = (id) => {
-        if (!window.confirm('Supprimer ce modele ?')) {
-            return;
-        }
         return executeAction(
             () => fleetService.deleteModele(id),
             'Modele supprime.',
@@ -141,6 +154,16 @@ const ModelesSection = ({ modeles, marques, canEdit, executeAction }) => {
                 </form>
             )}
 
+            <label className="block text-xs font-semibold text-slate-600">
+                Recherche
+                <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="mt-1 w-full md:max-w-sm px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    placeholder="Modele ou marque..."
+                />
+            </label>
+
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
@@ -152,7 +175,7 @@ const ModelesSection = ({ modeles, marques, canEdit, executeAction }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                        {modeles.map((modele) => (
+                        {filteredModeles.map((modele) => (
                             <tr key={modele.id}>
                                 <td className="px-4 py-2 text-sm text-slate-700">{modele.id}</td>
                                 <td className="px-4 py-2 text-sm text-slate-900 font-medium">{modele.nom}</td>
@@ -164,23 +187,37 @@ const ModelesSection = ({ modeles, marques, canEdit, executeAction }) => {
                                         <button type="button" onClick={() => handleEdit(modele)} className="text-blue-600 hover:text-blue-800">
                                             Modifier
                                         </button>
-                                        <button type="button" onClick={() => handleDelete(modele.id)} className="text-red-600 hover:text-red-800">
+                                        <button type="button" onClick={() => setModeleToDelete(modele)} className="text-red-600 hover:text-red-800">
                                             Supprimer
                                         </button>
                                     </td>
                                 )}
                             </tr>
                         ))}
-                        {modeles.length === 0 && (
+                        {filteredModeles.length === 0 && (
                             <tr>
                                 <td colSpan={canEdit ? 4 : 3} className="px-4 py-6 text-center text-sm text-slate-500">
-                                    Aucun modele disponible.
+                                    Aucun modele trouve.
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+            <ConfirmDialog
+                open={Boolean(modeleToDelete)}
+                title="Confirmation de suppression"
+                message={modeleToDelete ? `Supprimer le modele "${modeleToDelete.nom}" ?` : 'Supprimer ce modele ?'}
+                confirmLabel="Supprimer"
+                onCancel={() => setModeleToDelete(null)}
+                onConfirm={async () => {
+                    if (!modeleToDelete) {
+                        return;
+                    }
+                    await handleDelete(modeleToDelete.id);
+                    setModeleToDelete(null);
+                }}
+            />
         </section>
     );
 };

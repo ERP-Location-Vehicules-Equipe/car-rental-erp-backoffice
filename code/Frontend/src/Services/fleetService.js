@@ -21,6 +21,7 @@ const fleetService = {
 
     // Vehicles
     getVehicles: async () => (await api.get("/fleet/vehicles/")).data,
+    getVehicleById: async (id) => (await api.get(`/fleet/vehicles/${id}`)).data,
     createVehicle: async (payload) => (await api.post("/fleet/vehicles/", payload)).data,
     updateVehicle: async (id, payload) => (await api.put(`/fleet/vehicles/${id}`, payload)).data,
     updateVehicleStatus: async (id, statut) => (
@@ -30,6 +31,7 @@ const fleetService = {
 
     // Entretiens
     getEntretiens: async () => (await api.get("/fleet/entretiens/")).data,
+    getEntretienById: async (id) => (await api.get(`/fleet/entretiens/${id}`)).data,
     getVehicleEntretiens: async (vehicleId) => (
         await api.get(`/fleet/vehicles/${vehicleId}/entretiens`)
     ).data,

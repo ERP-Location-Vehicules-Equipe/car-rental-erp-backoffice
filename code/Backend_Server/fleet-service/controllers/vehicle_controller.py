@@ -16,6 +16,7 @@ from schemas.vehicle_schema import (
 from services.vehicle_service import (
     assert_vehicle_in_agence,
     create_vehicle,
+    get_available_vehicles_for_transfer,
     delete_vehicle,
     get_all_vehicles,
     get_vehicle_or_404,
@@ -34,6 +35,21 @@ def list_vehicles(
     if current_user.is_super_admin:
         return get_all_vehicles(db)
     return get_all_vehicles(db, agence_id=current_user.agence_id)
+
+
+@router.get("/available-transfer", response_model=list[VehicleResponse])
+def list_available_vehicles_for_transfer(
+    source_agence_id: int | None = None,
+    exclude_agence_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: AuthContext = Depends(get_current_user),
+):
+    _ = current_user
+    return get_available_vehicles_for_transfer(
+        db,
+        source_agence_id=source_agence_id,
+        exclude_agence_id=exclude_agence_id,
+    )
 
 
 @router.get("/{vehicle_id}", response_model=VehicleResponse)
@@ -72,14 +88,6 @@ def update_vehicle_endpoint(
     vehicle = get_vehicle_or_404(db, vehicle_id)
     if current_user.is_admin:
         assert_vehicle_in_agence(vehicle, current_user.agence_id)
-        if (
-            vehicle_data.agence_id is not None
-            and vehicle_data.agence_id != current_user.agence_id
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin can only keep vehicle in their own agence",
-            )
     return update_vehicle(db, vehicle_id, vehicle_data)
 
 

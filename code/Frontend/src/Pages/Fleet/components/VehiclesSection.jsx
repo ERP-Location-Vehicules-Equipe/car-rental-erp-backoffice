@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import fleetService from '../../../Services/fleetService';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { formatDateTime, toIsoOrNull, toLocalDateTimeInput } from './fleetUiUtils';
 
 const VEHICLE_STATUSES = [
@@ -23,18 +25,41 @@ const emptyForm = {
     valeur_achat: '',
 };
 
+const toDateOnly = (value) => {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    return date.toISOString().slice(0, 10);
+};
+
 const VehiclesSection = ({
     vehicles,
     categories,
     modeles,
+    marques,
     agences,
     canManageVehicles,
+    canCreateLocation,
     isSuperAdmin,
     userAgenceId,
     executeAction,
 }) => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState(emptyForm);
     const [editingId, setEditingId] = useState(null);
+    const [filters, setFilters] = useState({
+        search: '',
+        from: '',
+        to: '',
+    });
+    const [deleteDialog, setDeleteDialog] = useState({
+        open: false,
+        vehicle: null,
+    });
 
     const categoryById = useMemo(() => {
         return (categories || []).reduce((acc, item) => {
@@ -45,10 +70,17 @@ const VehiclesSection = ({
 
     const modeleById = useMemo(() => {
         return (modeles || []).reduce((acc, item) => {
-            acc[Number(item.id)] = item.nom;
+            acc[Number(item.id)] = item;
             return acc;
         }, {});
     }, [modeles]);
+
+    const marqueById = useMemo(() => {
+        return (marques || []).reduce((acc, item) => {
+            acc[Number(item.id)] = item.nom;
+            return acc;
+        }, {});
+    }, [marques]);
 
     const agenceById = useMemo(() => {
         return (agences || []).reduce((acc, item) => {
@@ -63,6 +95,45 @@ const VehiclesSection = ({
         }
         return agenceById[Number(agenceId)] || "Pas d'agence";
     };
+
+    const getVehicleMeta = (vehicle) => {
+        const modele = modeleById[Number(vehicle.modele_id)];
+        const marqueName = modele ? marqueById[Number(modele.marque_id)] : null;
+        const modeleName = modele?.nom || null;
+        const categorieName = categoryById[Number(vehicle.categorie_id)] || null;
+        return {
+            marqueName: marqueName || 'Marque inconnue',
+            modeleName: modeleName || 'Modele inconnu',
+            categorieName: categorieName || 'Categorie inconnue',
+        };
+    };
+
+    const filteredVehicles = useMemo(() => {
+        const query = filters.search.trim().toLowerCase();
+        const from = filters.from;
+        const to = filters.to;
+
+        return vehicles.filter((vehicle) => {
+            const dateOnly = toDateOnly(vehicle.created_at);
+            const matchFrom = !from || (dateOnly && dateOnly >= from);
+            const matchTo = !to || (dateOnly && dateOnly <= to);
+            if (!matchFrom || !matchTo) {
+                return false;
+            }
+            if (!query) {
+                return true;
+            }
+            const meta = getVehicleMeta(vehicle);
+            return [
+                vehicle.immatriculation,
+                getAgenceLabel(vehicle.agence_id),
+                meta.marqueName,
+                meta.modeleName,
+                meta.categorieName,
+                vehicle.statut,
+            ].some((value) => String(value || '').toLowerCase().includes(query));
+        });
+    }, [filters.from, filters.search, filters.to, vehicles]);
 
     const resetForm = () => {
         setFormData({
@@ -146,12 +217,9 @@ const VehiclesSection = ({
         });
     };
 
-    const handleDelete = (id) => {
-        if (!window.confirm('Supprimer ce vehicule ?')) {
-            return;
-        }
+    const handleDelete = (vehicle) => {
         return executeAction(
-            () => fleetService.deleteVehicle(id),
+            () => fleetService.deleteVehicle(vehicle.id),
             'Vehicule supprime.',
             () => 'Impossible de supprimer le vehicule.',
         );
@@ -164,6 +232,12 @@ const VehiclesSection = ({
             () => 'Impossible de changer le statut du vehicule.',
         );
     };
+
+    const handleCreateLocationFromVehicle = (vehicle) => {
+        navigate(`/locations?vehicle_id=${vehicle.id}`);
+    };
+
+    const showActionsColumn = true;
 
     return (
         <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 space-y-4">
@@ -279,61 +353,133 @@ const VehiclesSection = ({
             )}
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border-b border-slate-200 bg-slate-50">
+                    <label className="text-xs font-semibold text-slate-600">
+                        Recherche
+                        <input
+                            value={filters.search}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                            placeholder="Immatriculation, marque, modele..."
+                        />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                        Date creation du
+                        <input
+                            type="date"
+                            value={filters.from}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, from: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                        Date creation au
+                        <input
+                            type="date"
+                            value={filters.to}
+                            onChange={(event) => setFilters((prev) => ({ ...prev, to: event.target.value }))}
+                            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                        />
+                    </label>
+                </div>
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                         <tr>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Immatriculation</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Agence</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Modele</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Categorie</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Vehicule</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Statut</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Created</th>
-                            {canManageVehicles && <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>}
+                            {showActionsColumn && <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                        {vehicles.map((vehicle) => (
-                            <tr key={vehicle.id}>
-                                <td className="px-4 py-2 text-sm font-medium text-slate-900">{vehicle.immatriculation}</td>
-                                <td className="px-4 py-2 text-sm text-slate-700">{getAgenceLabel(vehicle.agence_id)}</td>
-                                <td className="px-4 py-2 text-sm text-slate-700">{modeleById[Number(vehicle.modele_id)] || vehicle.modele_id}</td>
-                                <td className="px-4 py-2 text-sm text-slate-700">{categoryById[Number(vehicle.categorie_id)] || vehicle.categorie_id}</td>
-                                <td className="px-4 py-2 text-sm text-slate-700">
-                                    {canManageVehicles ? (
-                                        <select
-                                            value={vehicle.statut}
-                                            onChange={(event) => handleStatusChange(vehicle.id, event.target.value)}
-                                            className="px-2 py-1 border border-slate-300 rounded-md text-xs"
-                                        >
-                                            {VEHICLE_STATUSES.map((status) => (
-                                                <option key={status} value={status}>{status}</option>
-                                            ))}
-                                        </select>
-                                    ) : vehicle.statut}
-                                </td>
-                                <td className="px-4 py-2 text-sm text-slate-700">{formatDateTime(vehicle.created_at)}</td>
-                                {canManageVehicles && (
-                                    <td className="px-4 py-2 text-right text-sm space-x-3">
-                                        <button type="button" onClick={() => handleEdit(vehicle)} className="text-blue-600 hover:text-blue-800">
-                                            Modifier
-                                        </button>
-                                        <button type="button" onClick={() => handleDelete(vehicle.id)} className="text-red-600 hover:text-red-800">
-                                            Supprimer
-                                        </button>
+                        {filteredVehicles.map((vehicle) => {
+                            const meta = getVehicleMeta(vehicle);
+                            const canQuickCreateLocation = canCreateLocation && vehicle.statut === 'disponible';
+                            return (
+                                <tr key={vehicle.id}>
+                                    <td className="px-4 py-2 text-sm font-medium text-slate-900">{vehicle.immatriculation}</td>
+                                    <td className="px-4 py-2 text-sm text-slate-700">{getAgenceLabel(vehicle.agence_id)}</td>
+                                    <td className="px-4 py-2 text-sm text-slate-700">
+                                        <div className="font-medium text-slate-900">{meta.marqueName} {meta.modeleName}</div>
+                                        <div className="text-xs text-slate-500">{meta.categorieName}</div>
                                     </td>
-                                )}
-                            </tr>
-                        ))}
-                        {vehicles.length === 0 && (
+                                    <td className="px-4 py-2 text-sm text-slate-700">
+                                        {canManageVehicles ? (
+                                            <select
+                                                value={vehicle.statut}
+                                                onChange={(event) => handleStatusChange(vehicle.id, event.target.value)}
+                                                className="px-2 py-1 border border-slate-300 rounded-md text-xs"
+                                            >
+                                                {VEHICLE_STATUSES.map((status) => (
+                                                    <option key={status} value={status}>{status}</option>
+                                                ))}
+                                            </select>
+                                        ) : vehicle.statut}
+                                    </td>
+                                    <td className="px-4 py-2 text-sm text-slate-700">{formatDateTime(vehicle.created_at)}</td>
+                                    {showActionsColumn && (
+                                        <td className="px-4 py-2 text-right text-sm space-x-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate(`/fleet/vehicles/${vehicle.id}`)}
+                                                className="text-slate-700 hover:text-slate-900"
+                                            >
+                                                Details
+                                            </button>
+                                            {canQuickCreateLocation && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCreateLocationFromVehicle(vehicle)}
+                                                    className="text-emerald-700 hover:text-emerald-900"
+                                                >
+                                                    Creer location
+                                                </button>
+                                            )}
+                                            {canManageVehicles && (
+                                                <button type="button" onClick={() => handleEdit(vehicle)} className="text-blue-600 hover:text-blue-800">
+                                                    Modifier
+                                                </button>
+                                            )}
+                                            {canManageVehicles && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteDialog({ open: true, vehicle })}
+                                                    className="text-red-600 hover:text-red-800"
+                                                >
+                                                    Supprimer
+                                                </button>
+                                            )}
+                                        </td>
+                                    )}
+                                </tr>
+                            );
+                        })}
+                        {filteredVehicles.length === 0 && (
                             <tr>
-                                <td colSpan={canManageVehicles ? 7 : 6} className="px-4 py-6 text-center text-sm text-slate-500">
-                                    Aucun vehicule disponible.
+                                <td colSpan={showActionsColumn ? 6 : 5} className="px-4 py-6 text-center text-sm text-slate-500">
+                                    Aucun vehicule trouve.
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+            <ConfirmDialog
+                open={deleteDialog.open}
+                title="Confirmation de suppression"
+                message={deleteDialog.vehicle ? `Supprimer le vehicule ${deleteDialog.vehicle.immatriculation} ?` : 'Supprimer ce vehicule ?'}
+                confirmLabel="Supprimer"
+                onCancel={() => setDeleteDialog({ open: false, vehicle: null })}
+                onConfirm={async () => {
+                    if (!deleteDialog.vehicle) {
+                        return;
+                    }
+                    await handleDelete(deleteDialog.vehicle);
+                    setDeleteDialog({ open: false, vehicle: null });
+                }}
+            />
         </section>
     );
 };
