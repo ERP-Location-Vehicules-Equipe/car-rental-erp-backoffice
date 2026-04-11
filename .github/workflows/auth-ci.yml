@@ -2,13 +2,13 @@
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Auth-service/**"
       - "Auth-service/**"
       - ".github/workflows/auth-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Auth-service/**"
       - "Auth-service/**"

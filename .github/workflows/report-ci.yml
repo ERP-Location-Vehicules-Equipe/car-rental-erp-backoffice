@@ -2,13 +2,13 @@ name: Report Service CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Report-service/**"
       - "Report-service/**"
       - ".github/workflows/report-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Report-service/**"
       - "Report-service/**"

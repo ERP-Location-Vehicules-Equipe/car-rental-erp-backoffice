@@ -283,7 +283,10 @@ const Dashboard = () => {
     }, [canManageUsers]);
 
     useEffect(() => {
-        loadDashboard();
+        const t = window.setTimeout(() => {
+            void loadDashboard();
+        }, 0);
+        return () => window.clearTimeout(t);
     }, [loadDashboard]);
 
     const agenceById = useMemo(() => {

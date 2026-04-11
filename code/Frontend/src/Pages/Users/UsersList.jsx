@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import authService from '../../Services/authService';
 import userService from '../../Services/userService';
@@ -41,7 +41,7 @@ const UsersList = () => {
         to: '',
     });
 
-    const fetchUsersAndOptionalAgences = async () => {
+    const fetchUsersAndOptionalAgences = useCallback(async () => {
         try {
             setLoading(true);
             setError('');
@@ -61,11 +61,11 @@ const UsersList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [isSuperAdmin]);
 
     useEffect(() => {
-        fetchUsersAndOptionalAgences();
-    }, [isSuperAdmin]);
+        void fetchUsersAndOptionalAgences();
+    }, [fetchUsersAndOptionalAgences]);
 
     const agenceNameMap = useMemo(() => {
         const map = {};

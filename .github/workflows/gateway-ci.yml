@@ -2,13 +2,13 @@ name: Gateway Service CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Gateway-service/**"
       - "Gateway-service/**"
       - ".github/workflows/gateway-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Gateway-service/**"
       - "Gateway-service/**"

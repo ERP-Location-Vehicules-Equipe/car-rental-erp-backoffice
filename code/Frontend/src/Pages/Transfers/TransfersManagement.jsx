@@ -82,8 +82,6 @@ const TransfersManagement = () => {
     const userAgenceId = currentUser?.agence_id;
 
     const canCreate = isSuperAdmin || isAdmin || isEmploye;
-    const canUpdateTransfer = isSuperAdmin || isAdmin;
-    const canManageWorkflow = isSuperAdmin || isAdmin || isEmploye;
     const canDeleteTransfer = isSuperAdmin;
     const showActionsColumn = true;
 

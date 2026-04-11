@@ -2,13 +2,13 @@ name: Agence Service CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Agence-service/**"
       - "Agence-service/**"
       - ".github/workflows/agence-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/Agence-service/**"
       - "Agence-service/**"

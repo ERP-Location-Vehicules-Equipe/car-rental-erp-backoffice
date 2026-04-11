@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import fleetService from '../../../Services/fleetService';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
@@ -96,24 +96,30 @@ const VehiclesSection = ({
         }, {});
     }, [agences]);
 
-    const getAgenceLabel = (agenceId) => {
-        if (!agenceId) {
-            return "Pas d'agence";
-        }
-        return agenceById[Number(agenceId)] || "Pas d'agence";
-    };
+    const getAgenceLabel = useCallback(
+        (agenceId) => {
+            if (!agenceId) {
+                return "Pas d'agence";
+            }
+            return agenceById[Number(agenceId)] || "Pas d'agence";
+        },
+        [agenceById],
+    );
 
-    const getVehicleMeta = (vehicle) => {
-        const modele = modeleById[Number(vehicle.modele_id)];
-        const marqueName = modele ? marqueById[Number(modele.marque_id)] : null;
-        const modeleName = modele?.nom || null;
-        const categorieName = categoryById[Number(vehicle.categorie_id)] || null;
-        return {
-            marqueName: marqueName || 'Marque inconnue',
-            modeleName: modeleName || 'Modele inconnu',
-            categorieName: categorieName || 'Categorie inconnue',
-        };
-    };
+    const getVehicleMeta = useCallback(
+        (vehicle) => {
+            const modele = modeleById[Number(vehicle.modele_id)];
+            const marqueName = modele ? marqueById[Number(modele.marque_id)] : null;
+            const modeleName = modele?.nom || null;
+            const categorieName = categoryById[Number(vehicle.categorie_id)] || null;
+            return {
+                marqueName: marqueName || 'Marque inconnue',
+                modeleName: modeleName || 'Modele inconnu',
+                categorieName: categorieName || 'Categorie inconnue',
+            };
+        },
+        [categoryById, modeleById, marqueById],
+    );
 
     const filteredVehicles = useMemo(() => {
         const query = filters.search.trim().toLowerCase();
@@ -140,7 +146,7 @@ const VehiclesSection = ({
                 vehicle.statut,
             ].some((value) => String(value || '').toLowerCase().includes(query));
         });
-    }, [filters.from, filters.search, filters.to, vehicles]);
+    }, [filters.from, filters.search, filters.to, getAgenceLabel, getVehicleMeta, vehicles]);
 
     const resetForm = () => {
         setFormData({

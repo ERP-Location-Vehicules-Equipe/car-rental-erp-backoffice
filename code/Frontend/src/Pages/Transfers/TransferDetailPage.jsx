@@ -184,7 +184,7 @@ const TransferDetailPage = () => {
         }
 
         setCandidateVehicles(vehicles);
-    }, [isSuperAdmin]);
+    }, []);
 
     const loadData = useCallback(async () => {
         setLoading(true);

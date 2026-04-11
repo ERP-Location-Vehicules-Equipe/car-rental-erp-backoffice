@@ -2,13 +2,13 @@ name: Fleet Service CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/fleet-service/**"
       - "fleet-service/**"
       - ".github/workflows/fleet-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/fleet-service/**"
       - "fleet-service/**"

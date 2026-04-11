@@ -31,17 +31,17 @@ const statusLabel = (value) => {
 };
 
 const FinanceOverviewPanel = ({ rapport, dashboardStats, scopeLabel, agenceById = {} }) => {
-    const monthlyData = Array.isArray(dashboardStats?.monthly_overview)
-        ? dashboardStats.monthly_overview
-        : [];
+    const monthlyData = useMemo(() => {
+        return Array.isArray(dashboardStats?.monthly_overview) ? dashboardStats.monthly_overview : [];
+    }, [dashboardStats]);
 
     const chargesByType = Array.isArray(dashboardStats?.charges_by_type)
         ? dashboardStats.charges_by_type
         : [];
 
-    const statusData = Array.isArray(dashboardStats?.factures_by_status)
-        ? dashboardStats.factures_by_status
-        : [];
+    const statusData = useMemo(() => {
+        return Array.isArray(dashboardStats?.factures_by_status) ? dashboardStats.factures_by_status : [];
+    }, [dashboardStats]);
     const agenceFinanceStats = Array.isArray(dashboardStats?.agence_finance_stats)
         ? dashboardStats.agence_finance_stats
         : [];

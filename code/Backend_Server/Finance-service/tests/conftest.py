@@ -1,10 +1,17 @@
+import sys
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from main import app
-from config.database import Base, get_db
+_SERVICE_ROOT = Path(__file__).resolve().parents[1]
+if str(_SERVICE_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVICE_ROOT))
+
+from main import app  # noqa: E402
+from config.database import Base, get_db  # noqa: E402
 
 # SQLite in-memory for tests
 TEST_DATABASE_URL = "sqlite:///./test_finance.db"

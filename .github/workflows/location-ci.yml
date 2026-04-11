@@ -2,13 +2,13 @@ name: Location Service CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/location-service/**"
       - "location-service/**"
       - ".github/workflows/location-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/location-service/**"
       - "location-service/**"

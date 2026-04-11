@@ -2,13 +2,13 @@ name: Transfer Service CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/transfer-service/**"
       - "transfer-service/**"
       - ".github/workflows/transfer-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/transfer-service/**"
       - "transfer-service/**"

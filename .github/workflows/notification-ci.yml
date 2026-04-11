@@ -2,13 +2,13 @@ name: Notification Service CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/notification_service/**"
       - "notification_service/**"
       - ".github/workflows/notification-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [main, dev_merge, dev]
     paths:
       - "code/Backend_Server/notification_service/**"
       - "notification_service/**"

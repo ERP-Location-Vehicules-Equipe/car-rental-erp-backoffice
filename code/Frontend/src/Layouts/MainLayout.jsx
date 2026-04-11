@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import authService from '../Services/authService';
@@ -47,7 +47,7 @@ const MainLayout = () => {
         menuItems.splice(2, 0, { name: 'Utilisateurs', path: '/users' });
     }
 
-    const refreshNotifications = async ({ allowPopup } = { allowPopup: false }) => {
+    const refreshNotifications = useCallback(async ({ allowPopup } = { allowPopup: false }) => {
         try {
             const [count, inbox] = await Promise.all([
                 notificationService.getUnreadCount(),
@@ -78,19 +78,22 @@ const MainLayout = () => {
         } catch {
             // Keep UI stable if notification service is unavailable.
         }
-    };
+    }, [location.pathname]);
 
     useEffect(() => {
-        refreshNotifications({ allowPopup: false });
+        const t = window.setTimeout(() => {
+            void refreshNotifications({ allowPopup: false });
+        }, 0);
 
         const interval = window.setInterval(() => {
-            refreshNotifications({ allowPopup: true });
+            void refreshNotifications({ allowPopup: true });
         }, 12000);
 
         return () => {
+            window.clearTimeout(t);
             window.clearInterval(interval);
         };
-    }, [location.pathname]);
+    }, [refreshNotifications]);
 
     useEffect(() => {
         const onDocumentClick = (event) => {
