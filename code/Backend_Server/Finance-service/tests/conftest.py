@@ -52,8 +52,10 @@ def setup_db():
             .first()
         )
         if not exists:
+            # SQLite + BigInteger PK : pas d'auto-increment fiable → id explicite
             db.add(
                 CompteTresorerie(
+                    id=1,
                     nom="Compte test CI",
                     type="banque",
                     agence_id=1,
