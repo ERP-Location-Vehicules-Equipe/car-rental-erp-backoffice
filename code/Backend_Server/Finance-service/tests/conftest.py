@@ -1,5 +1,10 @@
+import os
 import sys
 from pathlib import Path
+
+# Obligatoire avant `import main` : config.database appelle create_engine(DATABASE_URL)
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test_finance.db")
+os.environ.setdefault("SECRET_KEY", "super_secret_key_123456")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,10 +18,11 @@ if str(_SERVICE_ROOT) not in sys.path:
 from main import app  # noqa: E402
 from config.database import Base, get_db  # noqa: E402
 
-# SQLite in-memory for tests
-TEST_DATABASE_URL = "sqlite:///./test_finance.db"
-
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+TEST_DATABASE_URL = os.environ["DATABASE_URL"]
+_engine_kwargs = {}
+if str(TEST_DATABASE_URL).startswith("sqlite"):
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+engine = create_engine(TEST_DATABASE_URL, **_engine_kwargs)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

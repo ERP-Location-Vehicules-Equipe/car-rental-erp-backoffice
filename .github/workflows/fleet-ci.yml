@@ -84,7 +84,7 @@ jobs:
       - name: Run pytest
         env:
           SECRET_KEY: test_fleet_ci_secret
-        run: pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
+        run: python -m pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
 
   docker-build:
     name: Build Fleet Service Docker image

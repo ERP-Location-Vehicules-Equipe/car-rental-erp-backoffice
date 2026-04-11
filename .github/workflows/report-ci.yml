@@ -87,6 +87,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r "${{ steps.resolve_path.outputs.report_dir }}/requirements.txt"
+          pip install pytest
 
       - name: Verify resolved folders
         shell: bash
@@ -98,7 +99,7 @@ jobs:
       - name: Run pytest
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/report_test
-        run: pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
+        run: python -m pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
 
   docker-build:
     name: Build Report Service Docker image

@@ -82,7 +82,7 @@ jobs:
           ls -la "${{ steps.resolve_tests.outputs.tests_dir }}"
 
       - name: Run pytest
-        run: pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
+        run: python -m pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
 
   docker-build:
     name: Build Auth Service Docker image

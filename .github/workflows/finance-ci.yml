@@ -84,7 +84,8 @@ jobs:
       - name: Run pytest
         env:
           SECRET_KEY: super_secret_key_123456
-        run: pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
+          DATABASE_URL: sqlite:///./test_finance_ci.db
+        run: python -m pytest -q "${{ steps.resolve_tests.outputs.tests_dir }}"
 
   docker-build:
     name: Build Finance Service Docker image
