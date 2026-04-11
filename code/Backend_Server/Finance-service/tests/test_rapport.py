@@ -10,6 +10,7 @@ def test_rapport_financier(client, auth_headers):
     assert "factures_payees" in data
 
 
-def test_rapport_requires_admin(client):
+def test_rapport_denies_anonymous(client):
+    """Sans JWT : HTTPBearer peut répondre 401 ou 403 selon la version Starlette/FastAPI."""
     response = client.get("/api/rapport/")
-    assert response.status_code == 401
+    assert response.status_code in (401, 403)
