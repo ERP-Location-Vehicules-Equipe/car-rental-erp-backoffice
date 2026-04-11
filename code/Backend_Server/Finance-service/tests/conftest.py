@@ -40,8 +40,50 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    from decimal import Decimal
+
+    from Model.FinanceModels import CompteTresorerie
+
+    db = TestingSessionLocal()
+    try:
+        exists = (
+            db.query(CompteTresorerie)
+            .filter(CompteTresorerie.deleted_at == None, CompteTresorerie.agence_id == 1)
+            .first()
+        )
+        if not exists:
+            db.add(
+                CompteTresorerie(
+                    nom="Compte test CI",
+                    type="banque",
+                    agence_id=1,
+                    solde_actuel=Decimal("100000.00"),
+                )
+            )
+            db.commit()
+    finally:
+        db.close()
+
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def stub_location_service_scope(monkeypatch):
+    """Evite les appels HTTP au location-service (502 en CI)."""
+    from Controller import ScopeController
+
+    def _fake_fetch_locations(user):
+        _ = user
+        return [
+            {
+                "id": 1,
+                "agence_depart_id": 1,
+                "montant_total": 2400.0,
+            },
+        ]
+
+    monkeypatch.setattr(ScopeController, "_fetch_locations", _fake_fetch_locations)
 
 
 @pytest.fixture

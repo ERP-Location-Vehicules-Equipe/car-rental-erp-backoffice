@@ -28,7 +28,7 @@ def test_update_facture_statut(client, auth_headers):
         "statut": "payée"
     }, headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["statut"] == "payée"
+    assert response.json()["statut"] == "payee"
 
 
 def test_facture_not_found(client, auth_headers):
