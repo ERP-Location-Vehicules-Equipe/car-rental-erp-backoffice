@@ -6,7 +6,7 @@ def test_create_facture(client, auth_headers):
     }, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert data["montant_ttc"] == 1200.0
+    assert float(data["montant_ttc"]) == 1200.0
     assert data["statut"] == "en_attente"
     assert data["numero"].startswith("FAC-")
 

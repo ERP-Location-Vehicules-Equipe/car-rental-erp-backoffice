@@ -1,13 +1,18 @@
 from datetime import datetime
 
 from config.database import Base
-from sqlalchemy import BigInteger, Column, DateTime, Numeric, String
+from sqlalchemy import BigInteger, Column, DateTime, Integer, Numeric, String
+
+
+def _bigint_pk():
+    """Postgres: BIGINT ; SQLite: INTEGER AUTOINCREMENT (BigInteger seul ne l'active pas)."""
+    return BigInteger().with_variant(Integer(), "sqlite")
 
 
 class Facture(Base):
     __tablename__ = "factures"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(_bigint_pk(), primary_key=True, autoincrement=True, index=True)
     location_id = Column(BigInteger, nullable=False)  # location-service id
     numero = Column(String, unique=True, nullable=False)
     montant_ht = Column(Numeric(10, 2), nullable=False)
@@ -22,7 +27,7 @@ class Facture(Base):
 class Paiement(Base):
     __tablename__ = "paiements"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(_bigint_pk(), primary_key=True, autoincrement=True, index=True)
     facture_id = Column(BigInteger, nullable=False)
     location_id = Column(BigInteger, nullable=True)
     compte_id = Column(BigInteger, nullable=True)
@@ -37,7 +42,7 @@ class Paiement(Base):
 class CompteTresorerie(Base):
     __tablename__ = "comptes_tresorerie"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(_bigint_pk(), primary_key=True, autoincrement=True, index=True)
     nom = Column(String, nullable=False)
     type = Column(String, nullable=False)  # banque | caisse
     agence_id = Column(BigInteger, nullable=True)
@@ -49,7 +54,7 @@ class CompteTresorerie(Base):
 class Charge(Base):
     __tablename__ = "charges"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(_bigint_pk(), primary_key=True, autoincrement=True, index=True)
     type = Column(String, nullable=False)  # carburant | entretien | assurance | autre
     vehicule_id = Column(BigInteger, nullable=True)
     agence_id = Column(BigInteger, nullable=True)

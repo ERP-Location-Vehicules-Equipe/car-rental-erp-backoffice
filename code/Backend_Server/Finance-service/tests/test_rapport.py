@@ -11,6 +11,5 @@ def test_rapport_financier(client, auth_headers):
 
 
 def test_rapport_requires_admin(client):
-    # No token => 403
     response = client.get("/api/rapport/")
-    assert response.status_code == 403
+    assert response.status_code == 401

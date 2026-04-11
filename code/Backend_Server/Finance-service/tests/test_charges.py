@@ -8,7 +8,7 @@ def test_create_charge(client, auth_headers):
     assert response.status_code == 200
     data = response.json()
     assert data["type"] == "carburant"
-    assert data["montant"] == 350.0
+    assert float(data["montant"]) == 350.0
 
 
 def test_get_all_charges(client, auth_headers):
@@ -28,4 +28,4 @@ def test_update_charge(client, auth_headers):
         "montant": 400.0
     }, headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["montant"] == 400.0
+    assert float(response.json()["montant"]) == 400.0

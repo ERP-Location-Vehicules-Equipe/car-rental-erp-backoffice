@@ -13,12 +13,12 @@ from Schemas.FinanceSchemas import CreateFactureSchema, UpdateFactureSchema
 from dependencies.FinanceDependencies import AuthContext
 
 
-VALID_STATUSES = {"en_attente", "validee", "annulee", "payee", "paye"}
+VALID_STATUSES = {"en_attente", "validee", "annulee", "payee", "paye", "payée"}
 
 
 def _normalize_status(value: str) -> str:
     normalized = (value or "").strip().lower()
-    if normalized in {"payee", "paye", "validee"}:
+    if normalized in {"payee", "paye", "validee", "payée"}:
         return "payee"
     if normalized in {"annulee"}:
         return "annulee"
