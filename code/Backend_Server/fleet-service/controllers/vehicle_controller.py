@@ -59,8 +59,7 @@ def get_vehicle(
     current_user: AuthContext = Depends(get_current_user),
 ):
     vehicle = get_vehicle_or_404(db, vehicle_id)
-    if not current_user.is_super_admin:
-        assert_vehicle_in_agence(vehicle, current_user.agence_id)
+    _ = current_user
     return vehicle
 
 
@@ -75,7 +74,7 @@ def create_vehicle_endpoint(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin can only create vehicles in their own agence",
         )
-    return create_vehicle(db, vehicle_data)
+    return create_vehicle(db, vehicle_data, current_user)
 
 
 @router.put("/{vehicle_id}", response_model=VehicleResponse)
@@ -88,7 +87,7 @@ def update_vehicle_endpoint(
     vehicle = get_vehicle_or_404(db, vehicle_id)
     if current_user.is_admin:
         assert_vehicle_in_agence(vehicle, current_user.agence_id)
-    return update_vehicle(db, vehicle_id, vehicle_data)
+    return update_vehicle(db, vehicle_id, vehicle_data, current_user)
 
 
 @router.patch("/{vehicle_id}/status", response_model=VehicleResponse)
@@ -101,7 +100,7 @@ def update_vehicle_status_endpoint(
     vehicle = get_vehicle_or_404(db, vehicle_id)
     if current_user.is_admin:
         assert_vehicle_in_agence(vehicle, current_user.agence_id)
-    return update_vehicle_status(db, vehicle_id, status_data)
+    return update_vehicle_status(db, vehicle_id, status_data, current_user)
 
 
 @router.delete("/{vehicle_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -113,4 +112,4 @@ def delete_vehicle_endpoint(
     vehicle = get_vehicle_or_404(db, vehicle_id)
     if current_user.is_admin:
         assert_vehicle_in_agence(vehicle, current_user.agence_id)
-    delete_vehicle(db, vehicle_id)
+    delete_vehicle(db, vehicle_id, current_user)

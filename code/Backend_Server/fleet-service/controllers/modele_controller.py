@@ -36,9 +36,9 @@ def get_modele(
 def create_modele_endpoint(
     modele_data: ModeleCreate,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    return create_modele(db, modele_data)
+    return create_modele(db, modele_data, current_user)
 
 
 @router.put("/{modele_id}", response_model=ModeleResponse)
@@ -46,15 +46,15 @@ def update_modele_endpoint(
     modele_id: int,
     modele_data: ModeleUpdate,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    return update_modele(db, modele_id, modele_data)
+    return update_modele(db, modele_id, modele_data, current_user)
 
 
 @router.delete("/{modele_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_modele_endpoint(
     modele_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    delete_modele(db, modele_id)
+    delete_modele(db, modele_id, current_user)

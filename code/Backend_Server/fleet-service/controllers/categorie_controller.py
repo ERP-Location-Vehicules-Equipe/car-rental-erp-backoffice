@@ -40,9 +40,9 @@ def get_categorie(
 def create_categorie_endpoint(
     categorie_data: CategorieCreate,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    return create_categorie(db, categorie_data)
+    return create_categorie(db, categorie_data, current_user)
 
 
 @router.put("/{categorie_id}", response_model=CategorieResponse)
@@ -50,15 +50,15 @@ def update_categorie_endpoint(
     categorie_id: int,
     categorie_data: CategorieUpdate,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    return update_categorie(db, categorie_id, categorie_data)
+    return update_categorie(db, categorie_id, categorie_data, current_user)
 
 
 @router.delete("/{categorie_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_categorie_endpoint(
     categorie_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    delete_categorie(db, categorie_id)
+    delete_categorie(db, categorie_id, current_user)

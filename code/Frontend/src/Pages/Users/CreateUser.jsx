@@ -45,7 +45,7 @@ const CreateUser = () => {
             setLoadingAgences(true);
             setAgenceWarning('');
 
-            const result = await getAgencesCachedSafe();
+            const result = await getAgencesCachedSafe(isSuperAdmin);
             setAgences(result.agences);
             setAgenceServiceAvailable(result.available);
 

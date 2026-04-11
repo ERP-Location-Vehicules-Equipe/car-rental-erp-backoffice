@@ -1,11 +1,17 @@
 import math
 import os
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
+from io import BytesIO
 
 import requests
 from fastapi import HTTPException, status
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -23,6 +29,7 @@ FLEET_SERVICE_URL = os.getenv("FLEET_SERVICE_URL", "http://fleet_service:8004")
 TRANSFER_SERVICE_URL = os.getenv("TRANSFER_SERVICE_URL", "http://transfer_service:8008")
 FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://finance_service:8003")
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification_service:8006")
+AGENCE_SERVICE_URL = os.getenv("AGENCE_SERVICE_URL", "http://agence_service:8002")
 LOCATION_STATUSES = {item.value for item in LocationStatus}
 BLOCKED_VEHICLE_STATUSES = {"entretien", "hors_service"}
 MAINTENANCE_BLOCKING_STATUSES = {"planifiee", "en_cours"}
@@ -59,14 +66,22 @@ def _to_datetime(value):
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value
+        return _to_utc_naive(value)
     if isinstance(value, str):
         normalized = value.replace("Z", "+00:00")
         try:
-            return datetime.fromisoformat(normalized)
+            return _to_utc_naive(datetime.fromisoformat(normalized))
         except ValueError:
             return None
     return None
+
+
+def _to_utc_naive(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def _response_json_safe(response):
@@ -131,6 +146,62 @@ def _notification_post(path: str, token: str, payload: dict):
         return None
 
 
+def _agence_get(path: str, token: str):
+    try:
+        return requests.get(
+            f"{AGENCE_SERVICE_URL.rstrip('/')}{path}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=8,
+        )
+    except requests.RequestException:
+        return None
+
+
+def _resolve_agence_name(agence_id: int | None, token: str) -> str:
+    if not agence_id:
+        return "Pas d'agence"
+
+    candidate_paths = [
+        f"/api/agences/{int(agence_id)}",
+        f"/agences/{int(agence_id)}",
+    ]
+
+    for path in candidate_paths:
+        response = _agence_get(path, token)
+        if response is None or response.status_code >= 400:
+            continue
+        data = _response_json_safe(response)
+        if isinstance(data, dict):
+            name = str(data.get("nom") or "").strip()
+            if name:
+                return name
+
+    return "Agence non disponible"
+
+
+def _format_datetime_display(value: datetime | None) -> str:
+    if value is None:
+        return "-"
+    return value.strftime("%d/%m/%Y %H:%M")
+
+
+def _resolve_logo_path() -> str | None:
+    # Path inside location-service image (copied during repository changes).
+    local_path = os.path.join(os.path.dirname(__file__), "..", "assets", "logo.png")
+    normalized = os.path.normpath(local_path)
+    return normalized if os.path.exists(normalized) else None
+
+
+def _draw_kv(c: canvas.Canvas, x: float, y: float, label: str, value: str, value_x: float) -> float:
+    c.setFillColor(colors.HexColor("#334155"))
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(x, y, label)
+    c.setFont("Helvetica", 10)
+    c.setFillColor(colors.HexColor("#0f172a"))
+    c.drawString(value_x, y, value)
+    return y - 18
+
+
 def _format_vehicle_label(vehicle_data: dict | None, vehicle_id: int) -> str:
     if not isinstance(vehicle_data, dict):
         return f"Vehicule #{vehicle_id}"
@@ -145,6 +216,105 @@ def _format_vehicle_label(vehicle_data: dict | None, vehicle_id: int) -> str:
     if immatriculation:
         return immatriculation
     return f"Vehicule #{vehicle_id}"
+
+
+def build_location_contract_pdf(location: Location, current_user: AuthContext) -> bytes:
+    vehicle_data = _safe_vehicle_snapshot(int(location.vehicle_id), current_user.token)
+    vehicle_label = _format_vehicle_label(vehicle_data, int(location.vehicle_id))
+    agence_depart = _resolve_agence_name(int(location.agence_depart_id), current_user.token)
+    agence_retour = _resolve_agence_name(int(location.agence_retour_id), current_user.token)
+    date_fin_effective = location.date_retour_reelle or location.date_fin_prevue
+    rental_days = _calculate_days(location.date_debut, date_fin_effective)
+    tarif_jour = float(location.tarif_jour or 0)
+    montant_total = float(location.montant_total or 0)
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    margin = 18 * mm
+
+    c.setFillColor(colors.white)
+    c.rect(0, 0, width, height, stroke=0, fill=1)
+
+    # Header
+    logo_path = _resolve_logo_path()
+    if logo_path:
+        try:
+            c.drawImage(ImageReader(logo_path), margin, height - 40 * mm, width=20 * mm, height=20 * mm, mask="auto")
+        except Exception:  # pragma: no cover
+            pass
+
+    c.setFillColor(colors.HexColor("#0f3f8a"))
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(margin + 24 * mm, height - 24 * mm, "Contrat de Location")
+    c.setFont("Helvetica", 10)
+    c.setFillColor(colors.HexColor("#475569"))
+    c.drawString(margin + 24 * mm, height - 30 * mm, "ERP Auto - Service Location")
+
+    c.setFont("Helvetica", 10)
+    c.setFillColor(colors.HexColor("#334155"))
+    c.drawRightString(width - margin, height - 24 * mm, f"No Contrat: LOC-{int(location.id):06d}")
+    c.drawRightString(width - margin, height - 30 * mm, f"Date: {datetime.utcnow().strftime('%d/%m/%Y')}")
+
+    c.setStrokeColor(colors.HexColor("#cbd5e1"))
+    c.setLineWidth(1)
+    c.line(margin, height - 36 * mm, width - margin, height - 36 * mm)
+
+    # Main content
+    x_label = margin
+    x_value = margin + 52 * mm
+    y = height - 48 * mm
+
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(colors.HexColor("#0f172a"))
+    c.drawString(x_label, y, "Informations du contrat")
+    y -= 14
+
+    rows = [
+        ("Client", f"Client #{int(location.client_id)}"),
+        ("Vehicule", vehicle_label),
+        ("Agence de depart", agence_depart),
+        ("Agence de retour", agence_retour),
+        ("Date de debut", _format_datetime_display(location.date_debut)),
+        ("Date fin prevue", _format_datetime_display(location.date_fin_prevue)),
+        ("Date retour reelle", _format_datetime_display(location.date_retour_reelle)),
+        ("Duree", f"{int(rental_days)} jour(s)"),
+        ("Prix / jour", f"{tarif_jour:,.2f} MAD"),
+        ("Montant total", f"{montant_total:,.2f} MAD"),
+        ("Statut", str(location.etat or "-")),
+    ]
+
+    for label, value in rows:
+        c.setFont("Helvetica-Bold", 10)
+        c.setFillColor(colors.HexColor("#334155"))
+        c.drawString(x_label, y, f"{label}:")
+        c.setFont("Helvetica", 10)
+        c.setFillColor(colors.HexColor("#0f172a"))
+        c.drawString(x_value, y, value)
+        y -= 14
+
+    # Total box
+    box_y = 38 * mm
+    c.setFillColor(colors.HexColor("#eff6ff"))
+    c.roundRect(margin, box_y, width - (2 * margin), 20 * mm, 6, stroke=0, fill=1)
+    c.setStrokeColor(colors.HexColor("#bfdbfe"))
+    c.roundRect(margin, box_y, width - (2 * margin), 20 * mm, 6, stroke=1, fill=0)
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(colors.HexColor("#1e3a8a"))
+    c.drawString(margin + 8 * mm, box_y + 12 * mm, "Montant Contractuel TTC")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawRightString(width - margin - 8 * mm, box_y + 11 * mm, f"{montant_total:,.2f} MAD")
+
+    # Footer
+    c.setFont("Helvetica", 9)
+    c.setFillColor(colors.HexColor("#64748b"))
+    c.drawString(margin, 18 * mm, "Document genere automatiquement par ERP Auto.")
+    c.drawRightString(width - margin, 18 * mm, "Signature client: _____________________")
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 def _emit_location_notification(
@@ -303,6 +473,11 @@ def _is_overlap(
     start_b: datetime,
     end_b: datetime | None,
 ) -> bool:
+    start_a = _to_utc_naive(start_a)
+    end_a = _to_utc_naive(end_a)
+    start_b = _to_utc_naive(start_b)
+    end_b = _to_utc_naive(end_b)
+
     if end_b is None:
         return start_a >= start_b or end_a > start_b
     return start_a < end_b and end_a > start_b
@@ -381,6 +556,8 @@ def _assert_vehicle_transfer_availability(
 
 
 def _calculate_days(date_debut: datetime, date_fin: datetime) -> int:
+    date_debut = _to_utc_naive(date_debut)
+    date_fin = _to_utc_naive(date_fin)
     duration_seconds = (date_fin - date_debut).total_seconds()
     if duration_seconds <= 0:
         raise HTTPException(
@@ -451,6 +628,9 @@ def _check_vehicle_overlap(
     date_fin: datetime,
     exclude_location_id: int | None = None,
 ) -> None:
+    date_debut = _to_utc_naive(date_debut)
+    date_fin = _to_utc_naive(date_fin)
+
     effective_end = func.coalesce(Location.date_retour_reelle, Location.date_fin_prevue)
     query = db.query(Location).filter(
         Location.vehicle_id == vehicle_id,
@@ -564,23 +744,25 @@ def create_location(db: Session, location_data: LocationCreate, current_user: Au
             detail="New locations must start with en_cours status",
         )
 
-    days = _calculate_days(location_data.date_debut, location_data.date_fin_prevue)
+    date_debut = _to_utc_naive(location_data.date_debut)
+    date_fin_prevue = _to_utc_naive(location_data.date_fin_prevue)
+    days = _calculate_days(date_debut, date_fin_prevue)
     _check_vehicle_overlap(
         db=db,
         vehicle_id=location_data.vehicle_id,
-        date_debut=location_data.date_debut,
-        date_fin=location_data.date_fin_prevue,
+        date_debut=date_debut,
+        date_fin=date_fin_prevue,
     )
     _assert_vehicle_rentable_in_period(
         vehicle_data=vehicle,
-        date_debut=location_data.date_debut,
-        date_fin_prevue=location_data.date_fin_prevue,
+        date_debut=date_debut,
+        date_fin_prevue=date_fin_prevue,
         token=current_user.token,
     )
     _assert_vehicle_transfer_availability(
         vehicle_id=location_data.vehicle_id,
         agence_depart_id=agence_depart_id,
-        date_debut=location_data.date_debut,
+        date_debut=date_debut,
         token=current_user.token,
     )
     tarif_jour = _resolve_tarif_jour(location_data.tarif_jour, vehicle)
@@ -590,8 +772,8 @@ def create_location(db: Session, location_data: LocationCreate, current_user: Au
         vehicle_id=location_data.vehicle_id,
         agence_depart_id=agence_depart_id,
         agence_retour_id=agence_retour_id,
-        date_debut=location_data.date_debut,
-        date_fin_prevue=location_data.date_fin_prevue,
+        date_debut=date_debut,
+        date_fin_prevue=date_fin_prevue,
         date_retour_reelle=None,
         tarif_jour=tarif_jour,
         montant_total=tarif_jour * days,
@@ -600,17 +782,21 @@ def create_location(db: Session, location_data: LocationCreate, current_user: Au
 
     db.add(location)
     try:
-        db.flush()
-        _create_location_facture(location, current_user.token)
         db.commit()
-    except HTTPException:
-        db.rollback()
-        raise
     except Exception:
         db.rollback()
         raise
 
     db.refresh(location)
+    try:
+        _create_location_facture(location, current_user.token)
+    except HTTPException as exc:
+        # Non-blocking integration: location remains created even if facture service fails temporarily.
+        logger.warning(
+            "Failed to create facture for location %s: %s",
+            location.id,
+            getattr(exc, "detail", str(exc)),
+        )
     _emit_location_notification(
         current_user=current_user,
         location=location,
@@ -639,9 +825,9 @@ def update_location(
     vehicle_id = int(update_data.get("vehicle_id", location.vehicle_id))
     agence_depart_id = int(update_data.get("agence_depart_id", location.agence_depart_id))
     agence_retour_id = int(update_data.get("agence_retour_id", location.agence_retour_id))
-    date_debut = update_data.get("date_debut", location.date_debut)
-    date_fin_prevue = update_data.get("date_fin_prevue", location.date_fin_prevue)
-    date_retour_reelle = update_data.get("date_retour_reelle", location.date_retour_reelle)
+    date_debut = _to_utc_naive(update_data.get("date_debut", location.date_debut))
+    date_fin_prevue = _to_utc_naive(update_data.get("date_fin_prevue", location.date_fin_prevue))
+    date_retour_reelle = _to_utc_naive(update_data.get("date_retour_reelle", location.date_retour_reelle))
 
     if date_retour_reelle is not None and date_retour_reelle < date_debut:
         raise HTTPException(
@@ -681,6 +867,11 @@ def update_location(
     tarif_jour = _resolve_tarif_jour(update_data.get("tarif_jour"), vehicle)
     base_days = _calculate_days(date_debut, date_fin_prevue)
     new_total = tarif_jour * base_days
+
+    update_data["date_debut"] = date_debut
+    update_data["date_fin_prevue"] = date_fin_prevue
+    if "date_retour_reelle" in update_data:
+        update_data["date_retour_reelle"] = date_retour_reelle
 
     for field, value in update_data.items():
         setattr(location, field, value)
@@ -832,17 +1023,21 @@ def process_return(
             detail="Location already returned",
         )
 
-    if payload.date_retour_reelle < location.date_debut:
+    date_retour_reelle = _to_utc_naive(payload.date_retour_reelle)
+    date_debut = _to_utc_naive(location.date_debut)
+    date_fin_prevue = _to_utc_naive(location.date_fin_prevue)
+
+    if date_retour_reelle < date_debut:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="date_retour_reelle cannot be before date_debut",
         )
 
-    delay_seconds = (payload.date_retour_reelle - location.date_fin_prevue).total_seconds()
+    delay_seconds = (date_retour_reelle - date_fin_prevue).total_seconds()
     delay_days = math.ceil(delay_seconds / 86400) if delay_seconds > 0 else 0
     penalty = delay_days * location.tarif_jour
 
-    location.date_retour_reelle = payload.date_retour_reelle
+    location.date_retour_reelle = date_retour_reelle
     location.montant_total = location.montant_total + penalty
     location.etat = LocationStatus.TERMINEE.value
     db.commit()
@@ -886,7 +1081,11 @@ def extend_location(
             detail="Only en_cours locations can be extended",
         )
 
-    if payload.date_fin_prevue <= location.date_fin_prevue:
+    new_date_fin_prevue = _to_utc_naive(payload.date_fin_prevue)
+    current_date_fin_prevue = _to_utc_naive(location.date_fin_prevue)
+    current_date_debut = _to_utc_naive(location.date_debut)
+
+    if new_date_fin_prevue <= current_date_fin_prevue:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="New date_fin_prevue must be after current date_fin_prevue",
@@ -895,13 +1094,13 @@ def extend_location(
     _check_vehicle_overlap(
         db=db,
         vehicle_id=location.vehicle_id,
-        date_debut=location.date_debut,
-        date_fin=payload.date_fin_prevue,
+        date_debut=current_date_debut,
+        date_fin=new_date_fin_prevue,
         exclude_location_id=location.id,
     )
 
-    days = _calculate_days(location.date_debut, payload.date_fin_prevue)
-    location.date_fin_prevue = payload.date_fin_prevue
+    days = _calculate_days(current_date_debut, new_date_fin_prevue)
+    location.date_fin_prevue = new_date_fin_prevue
     location.montant_total = location.tarif_jour * days
 
     db.commit()

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import authService from '../../Services/authService';
 import userService from '../../Services/userService';
 import { getAgencesCachedSafe, getAgenceNameById } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -27,6 +28,7 @@ const toDateOnly = (value) => {
 };
 
 const UsersList = () => {
+    const isSuperAdmin = authService.isSuperAdmin();
     const [users, setUsers] = useState([]);
     const [agences, setAgences] = useState([]);
     const [agenceWarning, setAgenceWarning] = useState('');
@@ -48,7 +50,7 @@ const UsersList = () => {
             const usersData = await userService.getAllUsers();
             setUsers(Array.isArray(usersData) ? usersData : []);
 
-            const agencesResult = await getAgencesCachedSafe();
+            const agencesResult = await getAgencesCachedSafe(isSuperAdmin);
             setAgences(agencesResult.agences);
 
             if (!agencesResult.available) {
@@ -63,7 +65,7 @@ const UsersList = () => {
 
     useEffect(() => {
         fetchUsersAndOptionalAgences();
-    }, []);
+    }, [isSuperAdmin]);
 
     const agenceNameMap = useMemo(() => {
         const map = {};

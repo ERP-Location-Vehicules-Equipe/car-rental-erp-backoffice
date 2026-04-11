@@ -58,8 +58,9 @@ def test_delete_vehicle_also_deletes_related_entretiens(client):
     vehicle_id = create_response.json()["id"]
 
     entretien_response = client.post(
-        f"/vehicles/{vehicle_id}/entretiens",
+        "/entretiens/",
         json={
+            "vehicle_id": vehicle_id,
             "type_entretien": "preventive",
             "description": "Suppression en cascade",
             "date_debut": "2026-03-27T10:00:00",

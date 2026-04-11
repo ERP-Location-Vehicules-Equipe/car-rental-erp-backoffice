@@ -1,8 +1,10 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from dependencies.auth import AuthContext
 from models.marque import Marque
 from schemas.marque_schema import MarqueCreate, MarqueUpdate
+from services.notification_service import emit_fleet_event
 
 
 def get_all_marques(db: Session):
@@ -23,7 +25,7 @@ def get_marque_or_404(db: Session, marque_id: int) -> Marque:
     return marque
 
 
-def create_marque(db: Session, marque_data: MarqueCreate):
+def create_marque(db: Session, marque_data: MarqueCreate, current_user: AuthContext):
     existing = db.query(Marque).filter(Marque.nom == marque_data.nom).first()
     if existing:
         raise HTTPException(
@@ -35,10 +37,17 @@ def create_marque(db: Session, marque_data: MarqueCreate):
     db.add(marque)
     db.commit()
     db.refresh(marque)
+    emit_fleet_event(
+        current_user=current_user,
+        event_type="fleet_marque_created",
+        title="Marque creee",
+        message=f"Marque {marque.nom} creee.",
+        metadata={"marque_id": int(marque.id), "nom": marque.nom},
+    )
     return marque
 
 
-def update_marque(db: Session, marque_id: int, marque_data: MarqueUpdate):
+def update_marque(db: Session, marque_id: int, marque_data: MarqueUpdate, current_user: AuthContext):
     marque = get_marque_or_404(db, marque_id)
     update_data = marque_data.model_dump(exclude_unset=True)
 
@@ -59,10 +68,26 @@ def update_marque(db: Session, marque_id: int, marque_data: MarqueUpdate):
 
     db.commit()
     db.refresh(marque)
+    emit_fleet_event(
+        current_user=current_user,
+        event_type="fleet_marque_updated",
+        title="Marque mise a jour",
+        message=f"Marque #{marque.id} mise a jour.",
+        metadata={"marque_id": int(marque.id), "nom": marque.nom},
+    )
     return marque
 
 
-def delete_marque(db: Session, marque_id: int):
+def delete_marque(db: Session, marque_id: int, current_user: AuthContext):
     marque = get_marque_or_404(db, marque_id)
+    marque_id_value = int(marque.id)
+    marque_nom = marque.nom
     db.delete(marque)
     db.commit()
+    emit_fleet_event(
+        current_user=current_user,
+        event_type="fleet_marque_deleted",
+        title="Marque supprimee",
+        message=f"Marque {marque_nom} supprimee.",
+        metadata={"marque_id": marque_id_value, "nom": marque_nom},
+    )

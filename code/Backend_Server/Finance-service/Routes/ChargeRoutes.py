@@ -17,7 +17,6 @@ from Schemas.FinanceSchemas import (
     UpdateChargeSchema,
 )
 from dependencies.FinanceDependencies import (
-    admin_or_super_admin_required,
     employee_or_admin_required,
     get_current_user,
 )
@@ -46,7 +45,7 @@ def get_by_vehicule(vehicule_id: int, db: Session = Depends(get_db), user=Depend
 
 @router.get("/{charge_id}", response_model=ChargeResponseSchema)
 def get_one(charge_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    return get_charge_by_id(charge_id, db)
+    return get_charge_by_id(charge_id, db, user)
 
 
 @router.put("/{charge_id}", response_model=ChargeResponseSchema)
@@ -63,6 +62,6 @@ def update(
 def delete(
     charge_id: int,
     db: Session = Depends(get_db),
-    admin=Depends(admin_or_super_admin_required),
+    user=Depends(employee_or_admin_required),
 ):
-    return delete_charge(charge_id, db, admin)
+    return delete_charge(charge_id, db, user)

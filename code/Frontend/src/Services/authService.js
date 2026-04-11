@@ -9,6 +9,7 @@ const authService = {
 
     // Connexion de l'utilisateur.
     login: async (email, password) => {
+        clearAgencesCache();
         const response = await api.post('/auth/login', { email, password });
         if (response.data.access_token) {
             localStorage.setItem('access_token', response.data.access_token);

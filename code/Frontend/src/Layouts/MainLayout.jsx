@@ -20,12 +20,13 @@ const MainLayout = () => {
     const location = useLocation();
     const canManageUsers = authService.canManageUsers();
 
-    const [notificationItems, setNotificationItems] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-    const [notificationToast, setNotificationToast] = useState(null);
+    const [latestNotification, setLatestNotification] = useState(null);
+    const [recentNotifications, setRecentNotifications] = useState([]);
+    const [isBellOpen, setIsBellOpen] = useState(false);
 
-    const topNotificationIdRef = useRef(null);
+    const lastSeenNotificationIdRef = useRef(null);
+    const bellWrapperRef = useRef(null);
 
     const handleLogout = () => {
         authService.logout();
@@ -39,7 +40,6 @@ const MainLayout = () => {
         { name: 'Transfers', path: '/transferts' },
         { name: 'Locations', path: '/locations' },
         { name: 'Finance', path: '/finance' },
-        { name: 'Notifications', path: '/notifications' },
         { name: 'Profil', path: '/profile' },
     ];
 
@@ -47,123 +47,126 @@ const MainLayout = () => {
         menuItems.splice(2, 0, { name: 'Utilisateurs', path: '/users' });
     }
 
-    const refreshNotifications = async ({ allowToast } = { allowToast: false }) => {
+    const refreshNotifications = async ({ allowPopup } = { allowPopup: false }) => {
         try {
             const [count, inbox] = await Promise.all([
                 notificationService.getUnreadCount(),
-                notificationService.getInbox({ limit: 10, offset: 0, unreadOnly: false }),
+                notificationService.getInbox({ limit: 8, offset: 0, unreadOnly: false }),
             ]);
 
             setUnreadCount(count);
-            setNotificationItems(inbox);
+            setRecentNotifications(Array.isArray(inbox) ? inbox : []);
 
-            if (inbox.length > 0) {
-                const latest = inbox[0];
-                if (
-                    allowToast
-                    && !latest.isRead
-                    && topNotificationIdRef.current !== null
-                    && Number(latest.id) !== Number(topNotificationIdRef.current)
-                ) {
-                    setNotificationToast(latest);
-                }
-                topNotificationIdRef.current = Number(latest.id);
+            if (!Array.isArray(inbox) || inbox.length === 0) {
+                return;
             }
+
+            const newest = inbox[0];
+            const newestId = Number(newest.id);
+
+            if (
+                allowPopup
+                && !newest.isRead
+                && lastSeenNotificationIdRef.current !== null
+                && newestId !== Number(lastSeenNotificationIdRef.current)
+                && !location.pathname.startsWith('/notifications')
+            ) {
+                setLatestNotification(newest);
+            }
+
+            lastSeenNotificationIdRef.current = newestId;
         } catch {
-            // Silent fail to keep main UI stable even if notification service is down.
+            // Keep UI stable if notification service is unavailable.
         }
     };
 
     useEffect(() => {
-        refreshNotifications({ allowToast: false });
+        refreshNotifications({ allowPopup: false });
 
         const interval = window.setInterval(() => {
-            refreshNotifications({ allowToast: true });
+            refreshNotifications({ allowPopup: true });
         }, 12000);
 
         return () => {
             window.clearInterval(interval);
         };
-    }, []);
+    }, [location.pathname]);
 
     useEffect(() => {
-        const closeOnOutsideClick = (event) => {
-            if (!isNotificationOpen) {
+        const onDocumentClick = (event) => {
+            if (!bellWrapperRef.current) {
                 return;
             }
-
-            const panel = document.getElementById('notification-panel');
-            const button = document.getElementById('notification-button');
-            const target = event.target;
-
-            if (panel?.contains(target) || button?.contains(target)) {
-                return;
+            if (!bellWrapperRef.current.contains(event.target)) {
+                setIsBellOpen(false);
             }
-            setIsNotificationOpen(false);
         };
 
-        document.addEventListener('mousedown', closeOnOutsideClick);
+        document.addEventListener('mousedown', onDocumentClick);
         return () => {
-            document.removeEventListener('mousedown', closeOnOutsideClick);
+            document.removeEventListener('mousedown', onDocumentClick);
         };
-    }, [isNotificationOpen]);
+    }, []);
 
-    const visibleUnreadBadge = useMemo(() => {
+    const unreadBadgeLabel = useMemo(() => {
         if (unreadCount <= 0) {
             return '';
         }
         return unreadCount > 99 ? '99+' : String(unreadCount);
     }, [unreadCount]);
 
-    const openNotification = async (item) => {
+    const markReadAndNavigate = async (notification, fallbackToMessages = true) => {
         try {
-            if (!item.isRead) {
-                await notificationService.markRead(item.id);
-                setNotificationItems((prev) => prev.map((entry) => (
-                    entry.id === item.id ? { ...entry, isRead: true } : entry
-                )));
+            if (!notification.isRead) {
+                await notificationService.markRead(notification.id);
                 setUnreadCount((prev) => Math.max(0, prev - 1));
+                setRecentNotifications((prev) => prev.map((item) => (
+                    item.id === notification.id ? { ...item, isRead: true } : item
+                )));
             }
         } catch {
-            // Ignore read marking failures to avoid blocking navigation.
+            // Do not block navigation.
         }
 
-        setIsNotificationOpen(false);
+        setLatestNotification(null);
 
-        if (item.actionUrl) {
-            navigate(item.actionUrl);
-        } else {
+        if (notification.actionUrl) {
+            navigate(notification.actionUrl);
+            return;
+        }
+
+        if (fallbackToMessages) {
             navigate('/notifications');
         }
     };
 
-    const handleMarkAllRead = async () => {
+    const markAllBellNotificationsRead = async () => {
         try {
             await notificationService.markAllRead();
-            setNotificationItems((prev) => prev.map((entry) => ({ ...entry, isRead: true })));
             setUnreadCount(0);
+            setRecentNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
         } catch {
-            // Keep UI stable if API fails.
+            // Keep UI responsive if API fails.
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-            <nav className="bg-white shadow border-b border-gray-200">
+        <div className="erp-theme min-h-screen flex flex-col">
+            <nav className="erp-nav-glass sticky top-0 z-30 mx-3 mt-3 rounded-2xl">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                         <div className="flex">
                             <div className="flex-shrink-0 flex items-center">
                                 <img
-                                    className="h-8 w-auto object-contain"
+                                    className="h-9 w-auto object-contain"
                                     src="/src/images/logo.png"
                                     alt="Logo ERP"
                                     onError={(e) => {
                                         e.target.onerror = null;
-                                        e.target.src = 'https://ui-avatars.com/api/?name=ERP&background=0284c7&color=fff&rounded=true';
+                                        e.target.src = 'https://ui-avatars.com/api/?name=ERP&background=0f4ca6&color=fff&rounded=true';
                                     }}
                                 />
-                                <span className="ml-3 font-bold text-xl text-slate-800 tracking-tight">ERP Auto</span>
+                                <span className="ml-3 erp-title-font font-bold text-xl text-slate-800 tracking-tight">ERP Auto</span>
                             </div>
                             <div className="hidden sm:ml-8 sm:flex sm:space-x-8">
                                 {menuItems.map((item) => {
@@ -173,9 +176,9 @@ const MainLayout = () => {
                                             key={item.path}
                                             to={item.path}
                                             className={`${isActive
-                                                ? 'border-blue-600 text-slate-900'
+                                                ? 'border-blue-700 text-slate-900'
                                                 : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
-                                            } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-150`}
+                                                } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-semibold transition-colors duration-150`}
                                         >
                                             {item.name}
                                         </Link>
@@ -184,79 +187,82 @@ const MainLayout = () => {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3 relative">
-                            <button
-                                id="notification-button"
-                                type="button"
-                                onClick={() => setIsNotificationOpen((prev) => !prev)}
-                                className="relative inline-flex items-center justify-center px-3 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-700 bg-white hover:bg-slate-50"
-                            >
-                                Notifications
-                                {visibleUnreadBadge && (
-                                    <span className="ml-2 inline-flex min-w-[1.25rem] h-5 px-1.5 items-center justify-center rounded-full text-[11px] font-bold text-white bg-red-600">
-                                        {visibleUnreadBadge}
-                                    </span>
-                                )}
-                            </button>
-
-                            {isNotificationOpen && (
-                                <div
-                                    id="notification-panel"
-                                    className="absolute right-0 top-14 z-40 w-[26rem] max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-lg shadow-xl"
+                        <div className="flex items-center gap-3">
+                            <div className="relative" ref={bellWrapperRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBellOpen((prev) => !prev)}
+                                    className="relative inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                    title="Notifications"
                                 >
-                                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                                        <p className="text-sm font-semibold text-slate-900">Notifications recentes</p>
-                                        <button
-                                            type="button"
-                                            onClick={handleMarkAllRead}
-                                            className="text-xs font-semibold text-blue-700 hover:text-blue-900"
-                                        >
-                                            Tout marquer lu
-                                        </button>
-                                    </div>
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+                                        <path d="M9 17a3 3 0 0 0 6 0" />
+                                    </svg>
+                                    {unreadBadgeLabel && (
+                                        <span className="absolute -top-1 -right-1 inline-flex min-w-[1.2rem] h-5 px-1 items-center justify-center rounded-full text-[10px] font-bold text-white bg-blue-700">
+                                            {unreadBadgeLabel}
+                                        </span>
+                                    )}
+                                </button>
 
-                                    <div className="max-h-96 overflow-y-auto">
-                                        {notificationItems.length === 0 && (
-                                            <p className="px-4 py-6 text-sm text-slate-500">Aucune notification pour le moment.</p>
-                                        )}
-
-                                        {notificationItems.map((item) => (
+                                {isBellOpen && (
+                                    <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-1.5rem)] rounded-xl border border-slate-200 bg-white shadow-xl z-50">
+                                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                                            <p className="text-sm font-bold text-slate-900">Notifications</p>
                                             <button
-                                                key={item.id}
                                                 type="button"
-                                                onClick={() => openNotification(item)}
-                                                className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${item.isRead ? 'bg-white' : 'bg-blue-50/70'}`}
+                                                onClick={markAllBellNotificationsRead}
+                                                className="text-xs font-semibold text-blue-700 hover:text-blue-900"
                                             >
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                                                    {!item.isRead && (
-                                                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-600" />
-                                                    )}
-                                                </div>
-                                                <p className="mt-1 text-xs text-slate-600 line-clamp-2">{item.message}</p>
-                                                <p className="mt-1 text-[11px] text-slate-400">{formatDateTime(item.createdAt)}</p>
+                                                Tout marquer lu
                                             </button>
-                                        ))}
-                                    </div>
+                                        </div>
 
-                                    <div className="px-4 py-2 border-t border-slate-100">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsNotificationOpen(false);
-                                                navigate('/notifications');
-                                            }}
-                                            className="text-xs font-semibold text-blue-700 hover:text-blue-900"
-                                        >
-                                            Ouvrir le centre des notifications
-                                        </button>
+                                        <div className="max-h-80 overflow-y-auto">
+                                            {recentNotifications.length === 0 && (
+                                                <p className="px-4 py-6 text-sm text-slate-500">Aucun message pour le moment.</p>
+                                            )}
+
+                                            {recentNotifications.map((item) => (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsBellOpen(false);
+                                                        markReadAndNavigate(item, true);
+                                                    }}
+                                                    className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 ${item.isRead ? 'bg-white' : 'bg-blue-50/50'}`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                                                        {!item.isRead && <span className="inline-block w-2 h-2 rounded-full bg-blue-600" />}
+                                                    </div>
+                                                    <p className="mt-1 text-xs text-slate-600 line-clamp-2">{item.message}</p>
+                                                    <p className="mt-1 text-[11px] text-slate-400">{formatDateTime(item.createdAt)}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="px-4 py-2 border-t border-slate-100">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsBellOpen(false);
+                                                    navigate('/notifications');
+                                                }}
+                                                className="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                                            >
+                                                Voir tous les messages
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
 
                             <button
                                 onClick={handleLogout}
-                                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors duration-150"
+                                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors duration-150"
                             >
                                 Deconnexion
                             </button>
@@ -269,22 +275,44 @@ const MainLayout = () => {
                 <Outlet />
             </main>
 
-            {notificationToast && (
-                <div className="fixed right-5 bottom-5 z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-blue-200 bg-white shadow-2xl p-4">
+            <button
+                type="button"
+                onClick={() => navigate('/notifications')}
+                className="erp-fab"
+            >
+                Messages
+                {unreadBadgeLabel && <span className="erp-fab-badge">{unreadBadgeLabel}</span>}
+            </button>
+
+            {latestNotification && (
+                <div className="erp-toast-enter fixed right-5 bottom-20 z-50 w-[23rem] max-w-[calc(100vw-2rem)] rounded-xl border border-blue-200 bg-white shadow-2xl p-4">
                     <p className="text-[11px] uppercase tracking-wide font-semibold text-blue-700">Nouvelle notification</p>
-                    <h3 className="mt-1 text-sm font-bold text-slate-900">{notificationToast.title}</h3>
-                    <p className="mt-1 text-sm text-slate-700">{notificationToast.message}</p>
+                    <h3 className="mt-1 text-sm font-bold text-slate-900">{latestNotification.title}</h3>
+                    <p className="mt-1 text-sm text-slate-700">{latestNotification.message}</p>
+                    <p className="mt-2 text-[11px] text-slate-400">{formatDateTime(latestNotification.createdAt)}</p>
+
                     <div className="mt-3 flex items-center gap-3">
                         <button
                             type="button"
-                            onClick={() => openNotification(notificationToast)}
+                            onClick={() => markReadAndNavigate(latestNotification, true)}
                             className="px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700"
                         >
-                            Voir
+                            Voir le message
                         </button>
+
+                        {latestNotification.actionUrl && (
+                            <button
+                                type="button"
+                                onClick={() => markReadAndNavigate(latestNotification, false)}
+                                className="px-3 py-1.5 rounded-md text-xs font-semibold text-blue-700 border border-blue-200 hover:bg-blue-50"
+                            >
+                                Aller a l'action
+                            </button>
+                        )}
+
                         <button
                             type="button"
-                            onClick={() => setNotificationToast(null)}
+                            onClick={() => setLatestNotification(null)}
                             className="text-xs font-semibold text-slate-600 hover:text-slate-800"
                         >
                             Fermer

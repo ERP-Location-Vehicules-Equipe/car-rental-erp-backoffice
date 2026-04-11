@@ -4,6 +4,7 @@ import fleetService from '../../Services/fleetService';
 import { getAgencesCachedSafe } from '../../Services/agenceLookupService';
 import CategoriesSection from './components/CategoriesSection';
 import EntretiensSection from './components/EntretiensSection';
+import AssurancesSection from './components/AssurancesSection';
 import MarquesSection from './components/MarquesSection';
 import ModelesSection from './components/ModelesSection';
 import VehiclesSection from './components/VehiclesSection';
@@ -12,6 +13,7 @@ import { extractApiMessage } from './components/fleetUiUtils';
 const TABS = [
     { id: 'vehicles', label: 'Vehicules' },
     { id: 'entretiens', label: 'Entretiens' },
+    { id: 'assurances', label: 'Assurances' },
     { id: 'categories', label: 'Categories' },
     { id: 'marques', label: 'Marques' },
     { id: 'modeles', label: 'Modeles' },
@@ -21,11 +23,12 @@ const FleetManagement = () => {
     const currentUser = authService.getCurrentUser();
     const isSuperAdmin = currentUser?.role === authService.ROLE_SUPER_ADMIN;
     const isAdmin = currentUser?.role === authService.ROLE_ADMIN;
+    const isEmploye = currentUser?.role === authService.ROLE_EMPLOYE;
     const userAgenceId = currentUser?.agence_id;
 
     const canEditReferences = isSuperAdmin;
     const canManageVehicles = isSuperAdmin || isAdmin;
-    const canManageEntretiens = isSuperAdmin || isAdmin;
+    const canManageEntretiens = isSuperAdmin || isAdmin || isEmploye;
 
     const [activeTab, setActiveTab] = useState('vehicles');
     const [loading, setLoading] = useState(true);
@@ -38,6 +41,7 @@ const FleetManagement = () => {
     const [modeles, setModeles] = useState([]);
     const [vehicles, setVehicles] = useState([]);
     const [entretiens, setEntretiens] = useState([]);
+    const [assurances, setAssurances] = useState([]);
     const [agences, setAgences] = useState([]);
     const [agenceWarning, setAgenceWarning] = useState('');
 
@@ -77,6 +81,7 @@ const FleetManagement = () => {
                 modelesData,
                 vehiclesData,
                 entretiensData,
+                assurancesData,
                 agencesResult,
             ] = await Promise.all([
                 fleetService.getCategories(),
@@ -84,6 +89,7 @@ const FleetManagement = () => {
                 fleetService.getModeles(),
                 fleetService.getVehicles(),
                 fleetService.getEntretiens(),
+                fleetService.getAssurances(),
                 getAgencesCachedSafe(),
             ]);
 
@@ -92,6 +98,7 @@ const FleetManagement = () => {
             setModeles(Array.isArray(modelesData) ? modelesData : []);
             setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
             setEntretiens(Array.isArray(entretiensData) ? entretiensData : []);
+            setAssurances(Array.isArray(assurancesData) ? assurancesData : []);
             setAgences(Array.isArray(agencesResult.agences) ? agencesResult.agences : []);
             setAgenceWarning(
                 agencesResult.available
@@ -218,6 +225,17 @@ const FleetManagement = () => {
             {activeTab === 'entretiens' && (
                 <EntretiensSection
                     entretiens={entretiens}
+                    vehicles={vehicles}
+                    modeles={modeles}
+                    marques={marques}
+                    canManage={canManageEntretiens}
+                    executeAction={executeAction}
+                />
+            )}
+
+            {activeTab === 'assurances' && (
+                <AssurancesSection
+                    assurances={assurances}
                     vehicles={vehicles}
                     modeles={modeles}
                     marques={marques}

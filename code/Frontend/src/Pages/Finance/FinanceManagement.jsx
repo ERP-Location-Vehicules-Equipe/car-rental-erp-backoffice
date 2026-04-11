@@ -6,6 +6,7 @@ import locationService from '../../Services/locationService';
 import { getAgencesCachedSafe } from '../../Services/agenceLookupService';
 import { getErrorMessage } from '../../utils/errorHandler';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import FinanceOverviewPanel from './components/FinanceOverviewPanel';
 
 const TABS = [
     { id: 'overview', label: 'Apercu' },
@@ -16,6 +17,7 @@ const TABS = [
 ];
 
 const CHARGE_TYPES = ['carburant', 'entretien', 'assurance', 'autre'];
+const isFacturePaid = (status) => ['payee', 'validee', 'paye'].includes(String(status || '').toLowerCase());
 
 const toIsoOrNull = (value) => {
     if (!value) {
@@ -39,6 +41,14 @@ const formatDateTime = (value) => {
     return date.toLocaleString();
 };
 
+const formatMoney = (value) => {
+    const amount = Number(value || 0);
+    return new Intl.NumberFormat('fr-MA', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(amount);
+};
+
 const toDateOnly = (value) => {
     if (!value) {
         return '';
@@ -59,6 +69,7 @@ const FinanceManagement = () => {
 
     const canWrite = isSuperAdmin || isAdmin || isEmploye;
     const canAdmin = isSuperAdmin || isAdmin;
+    const canManageComptes = isSuperAdmin;
 
     const [activeTab, setActiveTab] = useState('overview');
     const [loading, setLoading] = useState(true);
@@ -103,8 +114,7 @@ const FinanceManagement = () => {
     });
 
     const [paiementForm, setPaiementForm] = useState({
-        facture_id: '',
-        compte_id: '',
+        location_id: '',
         montant: '',
         mode: 'virement',
         reference: '',
@@ -113,12 +123,14 @@ const FinanceManagement = () => {
     const [compteForm, setCompteForm] = useState({
         nom: '',
         type: 'banque',
+        agence_id: isSuperAdmin ? '' : String(userAgenceId || ''),
         solde_actuel: '0',
     });
     const [editingCompteId, setEditingCompteId] = useState(null);
     const [compteEditForm, setCompteEditForm] = useState({
         nom: '',
         type: 'banque',
+        agence_id: '',
         solde_actuel: '',
     });
 
@@ -164,6 +176,15 @@ const FinanceManagement = () => {
         }
         return { label: 'EMPLOYE', className: 'bg-emerald-100 text-emerald-800 border border-emerald-200' };
     }, [isAdmin, isSuperAdmin]);
+
+    const financeScopeLabel = useMemo(() => {
+        const dashboardScope = dashboardStats?.scope;
+        if (dashboardScope === 'agence') {
+            const agenceName = agences.find((item) => Number(item.id) === Number(userAgenceId))?.nom;
+            return agenceName ? `Statistiques agence: ${agenceName}` : 'Statistiques agence';
+        }
+        return 'Statistiques globales';
+    }, [agences, dashboardStats?.scope, userAgenceId]);
 
     const agenceById = useMemo(() => {
         return agences.reduce((acc, agence) => {
@@ -229,6 +250,41 @@ const FinanceManagement = () => {
         }, {});
     }, [agenceById, locationOptions, vehicleLabelById]);
 
+    const factureByLocationId = useMemo(() => {
+        return factures.reduce((acc, facture) => {
+            const key = Number(facture.location_id);
+            if (!Number.isNaN(key) && !acc[key]) {
+                acc[key] = facture;
+            }
+            return acc;
+        }, {});
+    }, [factures]);
+
+    const payableLocationOptions = useMemo(() => {
+        return locationOptions.filter((location) => {
+            const linkedFacture = factureByLocationId[Number(location.id)];
+            if (!linkedFacture) {
+                return true;
+            }
+            return !isFacturePaid(linkedFacture.statut);
+        });
+    }, [factureByLocationId, locationOptions]);
+
+    const factureById = useMemo(() => {
+        return factures.reduce((acc, facture) => {
+            acc[Number(facture.id)] = facture;
+            return acc;
+        }, {});
+    }, [factures]);
+
+    const compteLabelById = useMemo(() => {
+        return comptes.reduce((acc, compte) => {
+            const agenceLabel = agenceById[Number(compte.agence_id)] || "Pas d'agence";
+            acc[Number(compte.id)] = `${compte.nom} (${agenceLabel})`;
+            return acc;
+        }, {});
+    }, [agenceById, comptes]);
+
     const filteredFactures = useMemo(() => {
         const query = factureFilters.search.trim().toLowerCase();
         const from = factureFilters.from;
@@ -271,16 +327,20 @@ const FinanceManagement = () => {
             if (!query) {
                 return true;
             }
+            const locationLabel = locationLabelById[Number(paiement.location_id)] || '';
+            const compteLabel = compteLabelById[Number(paiement.compte_id)] || '';
             return [
                 paiement.id,
                 paiement.facture_id,
-                paiement.compte_id,
+                paiement.location_id,
+                locationLabel,
+                compteLabel,
                 paiement.mode,
                 paiement.reference,
                 paiement.montant,
             ].some((value) => String(value || '').toLowerCase().includes(query));
         });
-    }, [paiementFilters.from, paiementFilters.search, paiementFilters.to, paiements]);
+    }, [compteLabelById, locationLabelById, paiementFilters.from, paiementFilters.search, paiementFilters.to, paiements]);
 
     const filteredComptes = useMemo(() => {
         const query = compteSearch.trim().toLowerCase();
@@ -288,10 +348,18 @@ const FinanceManagement = () => {
             return comptes;
         }
         return comptes.filter((compte) => {
-            return [compte.nom, compte.type, compte.solde_actuel]
+            const agenceLabel = agenceById[Number(compte.agence_id)] || "Pas d'agence";
+            return [compte.nom, compte.type, compte.solde_actuel, agenceLabel]
                 .some((value) => String(value || '').toLowerCase().includes(query));
         });
-    }, [compteSearch, comptes]);
+    }, [agenceById, compteSearch, comptes]);
+
+    const agenceCompte = useMemo(() => {
+        if (isSuperAdmin || userAgenceId == null) {
+            return null;
+        }
+        return comptes.find((compte) => Number(compte.agence_id) === Number(userAgenceId)) || null;
+    }, [comptes, isSuperAdmin, userAgenceId]);
 
     const filteredCharges = useMemo(() => {
         const query = chargeFilters.search.trim().toLowerCase();
@@ -407,6 +475,10 @@ const FinanceManagement = () => {
             ...prev,
             agence_id: String(userAgenceId || ''),
         }));
+        setCompteForm((prev) => ({
+            ...prev,
+            agence_id: String(userAgenceId || ''),
+        }));
     }, [isSuperAdmin, userAgenceId]);
 
     const runAction = async (fn, successMessage, fallbackError, onSuccess) => {
@@ -498,21 +570,30 @@ const FinanceManagement = () => {
             'Impossible de restaurer la facture.',
         );
     };
+
+    const handlePaiementLocationChange = (locationIdValue) => {
+        const nextLocationId = String(locationIdValue || '');
+        const locationId = Number(nextLocationId);
+        const linkedFacture = factureByLocationId[locationId];
+        const suggestedAmount = linkedFacture?.montant_ttc;
+
+        setPaiementForm((prev) => ({
+            ...prev,
+            location_id: nextLocationId,
+            montant: suggestedAmount != null ? String(suggestedAmount) : prev.montant,
+        }));
+    };
+
     const handleCreatePaiement = async (event) => {
         event.preventDefault();
         const payload = {
-            facture_id: Number(paiementForm.facture_id),
-            compte_id: paiementForm.compte_id ? Number(paiementForm.compte_id) : null,
+            location_id: Number(paiementForm.location_id),
             montant: Number(paiementForm.montant),
             mode: paiementForm.mode,
             reference: paiementForm.reference.trim() || null,
         };
 
-        if (
-            Number.isNaN(payload.facture_id) ||
-            Number.isNaN(payload.montant) ||
-            (payload.compte_id !== null && Number.isNaN(payload.compte_id))
-        ) {
+        if (Number.isNaN(payload.location_id) || Number.isNaN(payload.montant)) {
             setError('Veuillez renseigner des valeurs valides pour creer le paiement.');
             return;
         }
@@ -521,7 +602,7 @@ const FinanceManagement = () => {
             () => financeService.createPaiement(payload),
             'Paiement cree avec succes.',
             'Impossible de creer le paiement.',
-            () => setPaiementForm({ facture_id: '', compte_id: '', montant: '', mode: 'virement', reference: '' }),
+            () => setPaiementForm({ location_id: '', montant: '', mode: 'virement', reference: '' }),
         );
     };
 
@@ -535,13 +616,25 @@ const FinanceManagement = () => {
 
     const handleCreateCompte = async (event) => {
         event.preventDefault();
+        if (!canManageComptes) {
+            setError('Seul le super admin peut creer un compte agence.');
+            return;
+        }
+        const agenceId = isSuperAdmin
+            ? Number(compteForm.agence_id)
+            : Number(userAgenceId);
         const payload = {
             nom: compteForm.nom.trim(),
             type: compteForm.type,
+            agence_id: agenceId,
             solde_actuel: Number(compteForm.solde_actuel),
         };
 
-        if (!payload.nom || Number.isNaN(payload.solde_actuel)) {
+        if (
+            !payload.nom ||
+            Number.isNaN(payload.solde_actuel) ||
+            Number.isNaN(payload.agence_id)
+        ) {
             setError('Veuillez renseigner des valeurs valides pour creer le compte.');
             return;
         }
@@ -550,15 +643,24 @@ const FinanceManagement = () => {
             () => financeService.createCompte(payload),
             'Compte cree avec succes.',
             'Impossible de creer le compte.',
-            () => setCompteForm({ nom: '', type: 'banque', solde_actuel: '0' }),
+            () => setCompteForm({
+                nom: '',
+                type: 'banque',
+                agence_id: isSuperAdmin ? '' : String(userAgenceId || ''),
+                solde_actuel: '0',
+            }),
         );
     };
 
     const startEditCompte = (compte) => {
+        if (!canManageComptes) {
+            return;
+        }
         setEditingCompteId(compte.id);
         setCompteEditForm({
             nom: compte.nom || '',
             type: compte.type || 'banque',
+            agence_id: String(compte.agence_id || ''),
             solde_actuel: String(compte.solde_actuel ?? ''),
         });
     };
@@ -568,11 +670,16 @@ const FinanceManagement = () => {
         setCompteEditForm({
             nom: '',
             type: 'banque',
+            agence_id: '',
             solde_actuel: '',
         });
     };
 
     const saveEditCompte = async (compteId) => {
+        if (!canManageComptes) {
+            setError('Seul le super admin peut modifier un compte agence.');
+            return;
+        }
         const solde = Number(compteEditForm.solde_actuel);
         if (!compteEditForm.nom.trim() || Number.isNaN(solde)) {
             setError('Valeurs invalides pour le compte.');
@@ -591,6 +698,10 @@ const FinanceManagement = () => {
     };
 
     const handleDeleteCompte = async (compteId) => {
+        if (!canManageComptes) {
+            setError('Seul le super admin peut supprimer un compte agence.');
+            return;
+        }
         await runAction(
             () => financeService.deleteCompte(compteId),
             'Compte supprime.',
@@ -813,6 +924,51 @@ const FinanceManagement = () => {
                     <p className="text-sm font-medium text-amber-700">{fleetWarning}</p>
                 </div>
             )}
+            {!isSuperAdmin && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p className="text-xs uppercase font-semibold text-slate-500">Compte agence</p>
+                            <p className="text-lg font-bold text-slate-900">
+                                {agenceCompte?.nom || dashboardStats?.agence_compte_nom || 'Compte non configure'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                {agenceById[Number(userAgenceId)] || "Pas d'agence"}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs uppercase font-semibold text-slate-500">Solde actuel</p>
+                            <p className="text-2xl font-bold text-indigo-700">
+                                {formatMoney(agenceCompte?.solde_actuel ?? dashboardStats?.agence_compte_solde)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isSuperAdmin && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <p className="text-xs uppercase font-semibold text-slate-500">Agences avec stats</p>
+                            <p className="text-xl font-bold text-slate-900">
+                                {Array.isArray(dashboardStats?.agence_finance_stats) ? dashboardStats.agence_finance_stats.length : 0}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs uppercase font-semibold text-slate-500">Total soldes comptes</p>
+                            <p className="text-xl font-bold text-indigo-700">{formatMoney(dashboardStats?.total_comptes_solde)}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs uppercase font-semibold text-slate-500">Solde net global operations</p>
+                            <p className="text-xl font-bold text-emerald-700">
+                                {formatMoney(
+                                    (dashboardStats?.total_paiements || 0) - (dashboardStats?.charges_total || 0),
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex flex-wrap gap-2">
                 {TABS.map((tab) => (
@@ -831,44 +987,12 @@ const FinanceManagement = () => {
                 ))}
             </div>
             {activeTab === 'overview' && (
-                <section className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="bg-white border border-slate-200 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-slate-500 uppercase">Total factures</p>
-                            <p className="text-2xl font-bold text-slate-900">{Number(rapport?.total_factures || 0).toFixed(2)}</p>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-slate-500 uppercase">Total paiements</p>
-                            <p className="text-2xl font-bold text-emerald-700">{Number(rapport?.total_paiements || 0).toFixed(2)}</p>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-slate-500 uppercase">Total charges</p>
-                            <p className="text-2xl font-bold text-rose-700">{Number(rapport?.total_charges || 0).toFixed(2)}</p>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-slate-500 uppercase">Solde net</p>
-                            <p className="text-2xl font-bold text-blue-700">{Number(rapport?.solde_net || 0).toFixed(2)}</p>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-slate-500 uppercase">Factures en attente</p>
-                            <p className="text-2xl font-bold text-amber-700">{Number(rapport?.factures_en_attente || 0)}</p>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-slate-500 uppercase">Factures payees</p>
-                            <p className="text-2xl font-bold text-emerald-700">{Number(rapport?.factures_payees || 0)}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                        <h3 className="text-lg font-bold text-slate-900 mb-3">Dashboard rapide</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-                            <div><span className="font-semibold text-slate-700">Revenu Total:</span> {Number(dashboardStats?.revenu_total || 0).toFixed(2)}</div>
-                            <div><span className="font-semibold text-slate-700">Charges Totales:</span> {Number(dashboardStats?.charges_total || 0).toFixed(2)}</div>
-                            <div><span className="font-semibold text-slate-700">Benefice:</span> {Number(dashboardStats?.benefice || 0).toFixed(2)}</div>
-                            <div><span className="font-semibold text-slate-700">Nombre de Factures:</span> {Number(dashboardStats?.nb_factures || 0)}</div>
-                        </div>
-                    </div>
-                </section>
+                <FinanceOverviewPanel
+                    rapport={rapport}
+                    dashboardStats={dashboardStats}
+                    scopeLabel={financeScopeLabel}
+                    agenceById={agenceById}
+                />
             )}
 
             {activeTab === 'factures' && (
@@ -886,7 +1010,7 @@ const FinanceManagement = () => {
                                     required
                                 >
                                     <option value="">Selectionner</option>
-                                    {locationOptions.map((location) => (
+                                    {payableLocationOptions.map((location) => (
                                         <option key={location.id} value={location.id}>
                                             {locationLabelById[Number(location.id)] || `Location #${location.id}`}
                                         </option>
@@ -1124,37 +1248,19 @@ const FinanceManagement = () => {
                     <h3 className="text-lg font-bold text-slate-900">Paiements</h3>
 
                     {canWrite && (
-                        <form onSubmit={handleCreatePaiement} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        <form onSubmit={handleCreatePaiement} className="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <label className="text-xs font-semibold text-slate-600">
-                                Facture
+                                Location
                                 <select
-                                    value={paiementForm.facture_id}
-                                    onChange={(event) => setPaiementForm((prev) => ({ ...prev, facture_id: event.target.value }))}
+                                    value={paiementForm.location_id}
+                                    onChange={(event) => handlePaiementLocationChange(event.target.value)}
                                     className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                                     required
                                 >
                                     <option value="">Selectionner</option>
-                                    {factures
-                                        .slice()
-                                        .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))
-                                        .map((facture) => (
-                                            <option key={facture.id} value={facture.id}>
-                                                {facture.numero} - {locationLabelById[Number(facture.location_id)] || `Location #${facture.location_id}`}
-                                            </option>
-                                        ))}
-                                </select>
-                            </label>
-                            <label className="text-xs font-semibold text-slate-600">
-                                Compte
-                                <select
-                                    value={paiementForm.compte_id}
-                                    onChange={(event) => setPaiementForm((prev) => ({ ...prev, compte_id: event.target.value }))}
-                                    className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                >
-                                    <option value="">Aucun</option>
-                                    {comptes.map((compte) => (
-                                        <option key={compte.id} value={compte.id}>
-                                            {compte.nom} ({compte.type})
+                                    {locationOptions.map((location) => (
+                                        <option key={location.id} value={location.id}>
+                                            {locationLabelById[Number(location.id)] || `Location #${location.id}`}
                                         </option>
                                     ))}
                                 </select>
@@ -1192,7 +1298,17 @@ const FinanceManagement = () => {
                                     className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
                                 />
                             </label>
-                            <div className="md:col-span-5">
+                            <div className="md:col-span-4 text-xs text-slate-500">
+                                {paiementForm.location_id && (
+                                    <span>
+                                        Facture liee: {factureByLocationId[Number(paiementForm.location_id)]?.numero || 'auto-generation'}.
+                                    </span>
+                                )}
+                                {payableLocationOptions.length === 0 && (
+                                    <span>Aucune facture en attente de paiement.</span>
+                                )}
+                            </div>
+                            <div className="md:col-span-4">
                                 <button type="submit" className="px-3 py-2 text-sm font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700">
                                     Ajouter paiement
                                 </button>
@@ -1207,7 +1323,7 @@ const FinanceManagement = () => {
                                 value={paiementFilters.search}
                                 onChange={(event) => setPaiementFilters((prev) => ({ ...prev, search: event.target.value }))}
                                 className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
-                                placeholder="Facture, mode, reference..."
+                                placeholder="Location, facture, compte, mode..."
                             />
                         </label>
                         <label className="text-xs font-semibold text-slate-600">
@@ -1235,21 +1351,29 @@ const FinanceManagement = () => {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">ID</th>
+                                    <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Location</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Facture</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Compte</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Montant</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Mode</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Reference</th>
-                                    {canAdmin && <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>}
+                                    {canManageComptes && <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
                                 {filteredPaiements.map((paiement) => (
                                     <tr key={paiement.id}>
                                         <td className="px-4 py-2 text-sm text-slate-700">{paiement.id}</td>
-                                        <td className="px-4 py-2 text-sm text-slate-700">{paiement.facture_id}</td>
-                                        <td className="px-4 py-2 text-sm text-slate-700">{paiement.compte_id || '-'}</td>
+                                        <td className="px-4 py-2 text-sm text-slate-700">
+                                            {locationLabelById[Number(paiement.location_id)] || `Location #${paiement.location_id || '-'}`}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-slate-700">
+                                            {factureById[Number(paiement.facture_id)]?.numero || paiement.facture_id}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-slate-700">
+                                            {compteLabelById[Number(paiement.compte_id)] || '-'}
+                                        </td>
                                         <td className="px-4 py-2 text-sm text-slate-700">{paiement.montant}</td>
                                         <td className="px-4 py-2 text-sm text-slate-700">{paiement.mode}</td>
                                         <td className="px-4 py-2 text-sm text-slate-700">{formatDateTime(paiement.date_paiement)}</td>
@@ -1269,7 +1393,7 @@ const FinanceManagement = () => {
                                 ))}
                                 {filteredPaiements.length === 0 && (
                                     <tr>
-                                        <td colSpan={canAdmin ? 8 : 7} className="px-4 py-6 text-center text-sm text-slate-500">
+                                        <td colSpan={canAdmin ? 9 : 8} className="px-4 py-6 text-center text-sm text-slate-500">
                                             Aucun paiement trouve.
                                         </td>
                                     </tr>
@@ -1284,7 +1408,32 @@ const FinanceManagement = () => {
                 <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 space-y-4">
                     <h3 className="text-lg font-bold text-slate-900">Comptes de tresorerie</h3>
 
-                    {canWrite && (
+                    {!isSuperAdmin && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="border border-slate-200 rounded-lg bg-slate-50 px-4 py-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Compte agence</p>
+                                <p className="mt-1 text-base font-semibold text-slate-900">
+                                    {agenceCompte?.nom || "Compte non configure"}
+                                </p>
+                                <p className="mt-1 text-sm text-slate-600">
+                                    Agence: {agenceById[Number(userAgenceId)] || "Pas d'agence"}
+                                </p>
+                                <p className="mt-1 text-sm font-semibold text-emerald-700">
+                                    Solde actuel: {agenceCompte?.solde_actuel ?? '-'}
+                                </p>
+                            </div>
+                            <div className="border border-slate-200 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                Les charges et paiements de votre agence impactent automatiquement ce compte.
+                                {!agenceCompte && (
+                                    <div className="mt-2 font-semibold text-rose-700">
+                                        Aucun compte agence actif. Contactez le super admin.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {canManageComptes && (
                         <form onSubmit={handleCreateCompte} className="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <label className="text-xs font-semibold text-slate-600">
                                 Nom
@@ -1306,6 +1455,31 @@ const FinanceManagement = () => {
                                     <option value="caisse">caisse</option>
                                 </select>
                             </label>
+                            {isSuperAdmin ? (
+                                <label className="text-xs font-semibold text-slate-600">
+                                    Agence
+                                    <select
+                                        value={compteForm.agence_id}
+                                        onChange={(event) => setCompteForm((prev) => ({ ...prev, agence_id: event.target.value }))}
+                                        className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                                        required
+                                    >
+                                        <option value="">Selectionner</option>
+                                        {scopeAgences.map((agence) => (
+                                            <option key={agence.id} value={agence.id}>{agence.nom}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                            ) : (
+                                <label className="text-xs font-semibold text-slate-600">
+                                    Agence
+                                    <input
+                                        value={agenceById[Number(userAgenceId)] || "Pas d'agence"}
+                                        className="mt-1 w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-md text-sm"
+                                        disabled
+                                    />
+                                </label>
+                            )}
                             <label className="text-xs font-semibold text-slate-600">
                                 Solde actuel
                                 <input
@@ -1342,8 +1516,9 @@ const FinanceManagement = () => {
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">ID</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Nom</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Type</th>
+                                    <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Agence</th>
                                     <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Solde</th>
-                                    {(canWrite || canAdmin) && <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>}
+                                    {canManageComptes && <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
@@ -1376,6 +1551,9 @@ const FinanceManagement = () => {
                                             )}
                                         </td>
                                         <td className="px-4 py-2 text-sm text-slate-700">
+                                            {agenceById[Number(compte.agence_id)] || "Pas d'agence"}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-slate-700">
                                             {editingCompteId === compte.id ? (
                                                 <input
                                                     type="number"
@@ -1388,14 +1566,14 @@ const FinanceManagement = () => {
                                                 compte.solde_actuel
                                             )}
                                         </td>
-                                        {(canWrite || canAdmin) && (
+                                        {canManageComptes && (
                                             <td className="px-4 py-2 text-right text-sm space-x-3">
-                                                {canWrite && editingCompteId !== compte.id && (
+                                                {editingCompteId !== compte.id && (
                                                     <button type="button" onClick={() => startEditCompte(compte)} className="text-blue-600 hover:text-blue-800">
                                                         Modifier
                                                     </button>
                                                 )}
-                                                {canWrite && editingCompteId === compte.id && (
+                                                {editingCompteId === compte.id && (
                                                     <>
                                                         <button type="button" onClick={() => saveEditCompte(compte.id)} className="text-emerald-600 hover:text-emerald-800">
                                                             Enregistrer
@@ -1405,22 +1583,20 @@ const FinanceManagement = () => {
                                                         </button>
                                                     </>
                                                 )}
-                                                {canAdmin && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => requestDelete('compte', compte.id, compte.nom)}
-                                                        className="text-red-600 hover:text-red-800"
-                                                    >
-                                                        Supprimer
-                                                    </button>
-                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => requestDelete('compte', compte.id, compte.nom)}
+                                                    className="text-red-600 hover:text-red-800"
+                                                >
+                                                    Supprimer
+                                                </button>
                                             </td>
                                         )}
                                     </tr>
                                 ))}
                                 {filteredComptes.length === 0 && (
                                     <tr>
-                                        <td colSpan={(canWrite || canAdmin) ? 5 : 4} className="px-4 py-6 text-center text-sm text-slate-500">
+                                        <td colSpan={canManageComptes ? 6 : 5} className="px-4 py-6 text-center text-sm text-slate-500">
                                             Aucun compte trouve.
                                         </td>
                                     </tr>

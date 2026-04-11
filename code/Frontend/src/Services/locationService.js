@@ -16,6 +16,9 @@ const locationService = {
     extendLocation: async (id, date_fin_prevue) => (
         await api.put(`/location/locations/${id}/prolonger`, { date_fin_prevue })
     ).data,
+    downloadContractPdf: async (id) => (
+        await api.get(`/location/locations/${id}/contrat-pdf`, { responseType: 'blob' })
+    ).data,
 };
 
 export default locationService;

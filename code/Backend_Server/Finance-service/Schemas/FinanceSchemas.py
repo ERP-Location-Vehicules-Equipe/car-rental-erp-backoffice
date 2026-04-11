@@ -1,12 +1,9 @@
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
+from typing import List, Optional
 
+from pydantic import BaseModel
 
-# ==============================
-# Facture Schemas
-# ==============================
 
 class CreateFactureSchema(BaseModel):
     location_id: int
@@ -38,15 +35,11 @@ class FactureListResponseSchema(BaseModel):
     factures: List[FactureResponseSchema]
 
 
-# ==============================
-# Paiement Schemas
-# ==============================
-
 class CreatePaiementSchema(BaseModel):
-    facture_id: int
-    compte_id: Optional[int] = None
+    location_id: int
+    facture_id: Optional[int] = None
     montant: Decimal
-    mode: str  # espèces | virement | carte | chèque
+    mode: str  # especes | virement | carte | cheque
     reference: Optional[str] = None
 
 
@@ -58,6 +51,7 @@ class UpdatePaiementSchema(BaseModel):
 class PaiementResponseSchema(BaseModel):
     id: int
     facture_id: int
+    location_id: Optional[int] = None
     compte_id: Optional[int]
     montant: Decimal
     mode: str
@@ -72,18 +66,16 @@ class PaiementListResponseSchema(BaseModel):
     paiements: List[PaiementResponseSchema]
 
 
-# ==============================
-# Compte Trésorerie Schemas
-# ==============================
-
 class CreateCompteSchema(BaseModel):
     nom: str
     type: str  # banque | caisse
+    agence_id: Optional[int] = None
     solde_actuel: Decimal = Decimal("0.0")
 
 
 class UpdateCompteSchema(BaseModel):
     nom: Optional[str] = None
+    type: Optional[str] = None
     solde_actuel: Optional[Decimal] = None
 
 
@@ -91,6 +83,7 @@ class CompteResponseSchema(BaseModel):
     id: int
     nom: str
     type: str
+    agence_id: Optional[int] = None
     solde_actuel: Decimal
 
     class Config:
@@ -101,14 +94,13 @@ class CompteListResponseSchema(BaseModel):
     comptes: List[CompteResponseSchema]
 
 
-# ==============================
-# Charge Schemas
-# ==============================
-
 class CreateChargeSchema(BaseModel):
     type: str
     vehicule_id: Optional[int] = None
     agence_id: Optional[int] = None
+    compte_id: Optional[int] = None
+    source_type: Optional[str] = None
+    source_ref_id: Optional[int] = None
     categorie_charge: Optional[str] = None
     montant: Decimal
     date_charge: Optional[datetime] = None
@@ -127,6 +119,9 @@ class ChargeResponseSchema(BaseModel):
     type: str
     vehicule_id: Optional[int]
     agence_id: Optional[int]
+    compte_id: Optional[int]
+    source_type: Optional[str]
+    source_ref_id: Optional[int]
     categorie_charge: Optional[str]
     montant: Decimal
     date_charge: datetime
@@ -139,10 +134,6 @@ class ChargeResponseSchema(BaseModel):
 class ChargeListResponseSchema(BaseModel):
     charges: List[ChargeResponseSchema]
 
-
-# ==============================
-# Dashboard / Rapport Schema
-# ==============================
 
 class RapportFinancierSchema(BaseModel):
     total_factures: Decimal

@@ -16,4 +16,4 @@ def rapport(
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
-    return get_rapport_financier(db)
+    return get_rapport_financier(db, user)

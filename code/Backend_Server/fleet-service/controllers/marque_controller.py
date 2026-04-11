@@ -36,9 +36,9 @@ def get_marque(
 def create_marque_endpoint(
     marque_data: MarqueCreate,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    return create_marque(db, marque_data)
+    return create_marque(db, marque_data, current_user)
 
 
 @router.put("/{marque_id}", response_model=MarqueResponse)
@@ -46,15 +46,15 @@ def update_marque_endpoint(
     marque_id: int,
     marque_data: MarqueUpdate,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    return update_marque(db, marque_id, marque_data)
+    return update_marque(db, marque_id, marque_data, current_user)
 
 
 @router.delete("/{marque_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_marque_endpoint(
     marque_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(super_admin_required),
+    current_user=Depends(super_admin_required),
 ):
-    delete_marque(db, marque_id)
+    delete_marque(db, marque_id, current_user)

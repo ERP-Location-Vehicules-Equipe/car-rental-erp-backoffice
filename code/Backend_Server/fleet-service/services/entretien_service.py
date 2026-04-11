@@ -4,9 +4,11 @@ import httpx
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from dependencies.auth import AuthContext
 from models.entretien import VehicleEntretien
 from models.vehicle import Vehicle
 from schemas.entretien_schema import EntretienCreate, EntretienUpdate
+from services.notification_service import emit_fleet_event
 
 FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://finance_service:8003")
 SERVICE_HTTP_TIMEOUT_SECONDS = float(os.getenv("SERVICE_HTTP_TIMEOUT_SECONDS", "8"))
@@ -88,21 +90,23 @@ def _response_json_safe(response: httpx.Response):
 
 
 def _create_finance_charge_for_entretien(
-    entretien_data: EntretienCreate,
+    entretien: VehicleEntretien,
     vehicle: Vehicle,
     finance_token: str,
 ) -> None:
-    description = f"Entretien {entretien_data.type_entretien}: {entretien_data.description}"
-    if entretien_data.prestataire:
-        description = f"{description} | Prestataire: {entretien_data.prestataire}"
+    description = f"Entretien {entretien.type_entretien}: {entretien.description}"
+    if entretien.prestataire:
+        description = f"{description} | Prestataire: {entretien.prestataire}"
 
     payload = {
         "type": "entretien",
         "vehicule_id": int(vehicle.id),
         "agence_id": int(vehicle.agence_id) if vehicle.agence_id is not None else None,
-        "categorie_charge": str(entretien_data.type_entretien),
-        "montant": float(entretien_data.cout),
-        "date_charge": entretien_data.date_debut.isoformat(),
+        "source_type": "entretien",
+        "source_ref_id": int(entretien.id),
+        "categorie_charge": str(entretien.type_entretien),
+        "montant": float(entretien.cout),
+        "date_charge": entretien.date_debut.isoformat(),
         "description": description,
     }
 
@@ -142,6 +146,7 @@ def _create_finance_charge_for_entretien(
 def create_entretien(
     db: Session,
     entretien_data: EntretienCreate,
+    current_user: AuthContext,
     finance_token: str | None = None,
 ):
     vehicle = get_vehicle_or_404(db, entretien_data.vehicle_id)
@@ -155,7 +160,7 @@ def create_entretien(
     try:
         db.flush()
         if finance_token:
-            _create_finance_charge_for_entretien(entretien_data, vehicle, finance_token)
+            _create_finance_charge_for_entretien(entretien, vehicle, finance_token)
         db.commit()
     except HTTPException:
         db.rollback()
@@ -165,11 +170,27 @@ def create_entretien(
         raise
 
     db.refresh(entretien)
+    emit_fleet_event(
+        current_user=current_user,
+        event_type="fleet_entretien_created",
+        title="Entretien ajoute",
+        message=(
+            f"Nouvel entretien ({entretien.type_entretien}) pour le vehicule "
+            f"{vehicle.immatriculation or vehicle.id}."
+        ),
+        agence_id=int(vehicle.agence_id) if vehicle.agence_id is not None else None,
+        metadata={
+            "entretien_id": int(entretien.id),
+            "vehicle_id": int(entretien.vehicle_id),
+            "type_entretien": entretien.type_entretien,
+            "statut": entretien.statut,
+        },
+    )
     return entretien
 
 
 def update_entretien(
-    db: Session, entretien_id: int, entretien_data: EntretienUpdate
+    db: Session, entretien_id: int, entretien_data: EntretienUpdate, current_user: AuthContext
 ):
     entretien = get_entretien_or_404(db, entretien_id)
     update_data = entretien_data.model_dump(exclude_unset=True)
@@ -183,11 +204,45 @@ def update_entretien(
 
     db.commit()
     db.refresh(entretien)
+    vehicle = get_vehicle_or_404(db, entretien.vehicle_id)
+    emit_fleet_event(
+        current_user=current_user,
+        event_type="fleet_entretien_updated",
+        title="Entretien mis a jour",
+        message=(
+            f"Entretien #{entretien.id} mis a jour pour le vehicule "
+            f"{vehicle.immatriculation or vehicle.id}."
+        ),
+        agence_id=int(vehicle.agence_id) if vehicle.agence_id is not None else None,
+        metadata={
+            "entretien_id": int(entretien.id),
+            "vehicle_id": int(entretien.vehicle_id),
+            "type_entretien": entretien.type_entretien,
+            "statut": entretien.statut,
+        },
+    )
     return entretien
 
 
-def delete_entretien(db: Session, entretien_id: int):
+def delete_entretien(db: Session, entretien_id: int, current_user: AuthContext):
     entretien = get_entretien_or_404(db, entretien_id)
+    entretien_id_value = int(entretien.id)
+    vehicle_id = int(entretien.vehicle_id)
+    vehicle = get_vehicle_or_404(db, vehicle_id)
 
     db.delete(entretien)
     db.commit()
+    emit_fleet_event(
+        current_user=current_user,
+        event_type="fleet_entretien_deleted",
+        title="Entretien supprime",
+        message=(
+            f"Entretien #{entretien_id_value} supprime pour le vehicule "
+            f"{vehicle.immatriculation or vehicle.id}."
+        ),
+        agence_id=int(vehicle.agence_id) if vehicle.agence_id is not None else None,
+        metadata={
+            "entretien_id": entretien_id_value,
+            "vehicle_id": vehicle_id,
+        },
+    )

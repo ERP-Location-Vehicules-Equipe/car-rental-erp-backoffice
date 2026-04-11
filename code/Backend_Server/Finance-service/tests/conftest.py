@@ -41,8 +41,8 @@ def auth_headers():
     # Mock JWT token for tests — same SECRET_KEY as .env
     from jose import jwt
     token = jwt.encode(
-        {"user_id": 1, "role": "admin"},
+        {"user_id": 1, "role": "admin", "agence_id": 1},
         "super_secret_key_123456",
-        algorithm="HS256"
+        algorithm="HS256",
     )
     return {"Authorization": f"Bearer {token}"}

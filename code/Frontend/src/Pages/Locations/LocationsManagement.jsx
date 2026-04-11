@@ -65,6 +65,63 @@ const toDateOnly = (value) => {
     return date.toISOString().slice(0, 10);
 };
 
+const ActionIconButton = ({ title, onClick, className, children }) => (
+    <button
+        type="button"
+        title={title}
+        aria-label={title}
+        onClick={onClick}
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent transition-colors ${className}`}
+    >
+        {children}
+    </button>
+);
+
+const IconDetails = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+        <circle cx="12" cy="12" r="3" />
+    </svg>
+);
+
+const IconPdf = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M8 15h8M8 11h8M8 19h5" />
+    </svg>
+);
+
+const IconEdit = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 113 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+);
+
+const IconReturn = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 14l-4-4 4-4" />
+        <path d="M5 10h10a4 4 0 010 8h-2" />
+    </svg>
+);
+
+const IconExtend = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+    </svg>
+);
+
+const IconDelete = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+        <path d="M19 6l-1 14H6L5 6" />
+        <path d="M10 11v6M14 11v6" />
+    </svg>
+);
+
 const LocationsManagement = () => {
     const routeLocation = useLocation();
     const navigate = useNavigate();
@@ -432,6 +489,24 @@ const LocationsManagement = () => {
         );
     };
 
+    const handleDownloadContract = async (locationItem) => {
+        setError('');
+        try {
+            const blob = await locationService.downloadContractPdf(locationItem.id);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `contrat-location-${locationItem.id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            setNotice(`Contrat PDF telecharge pour la location #${locationItem.id}.`);
+        } catch (downloadError) {
+            setError(getErrorMessage(downloadError, 'Impossible de telecharger le contrat PDF.'));
+        }
+    };
+
     const openReturnDialog = (locationId) => {
         setDateDialog({
             open: true,
@@ -779,34 +854,59 @@ const LocationsManagement = () => {
                                         ) : location.etat}
                                     </td>
                                     {showActionsColumn && (
-                                        <td className="px-4 py-2 text-right text-sm space-x-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => navigate(`/locations/${location.id}`)}
-                                                className="text-slate-700 hover:text-slate-900"
-                                            >
-                                                Details
-                                            </button>
+                                        <td className="px-4 py-2 text-right">
+                                            <div className="inline-flex items-center gap-1">
+                                                <ActionIconButton
+                                                    title="Details"
+                                                    onClick={() => navigate(`/locations/${location.id}`)}
+                                                    className="text-slate-700 hover:bg-slate-100"
+                                                >
+                                                    <IconDetails />
+                                                </ActionIconButton>
+                                                <ActionIconButton
+                                                    title="Contrat PDF"
+                                                    onClick={() => handleDownloadContract(location)}
+                                                    className="text-indigo-700 hover:bg-indigo-50"
+                                                >
+                                                    <IconPdf />
+                                                </ActionIconButton>
                                             {canEditLocation && (
-                                                <button type="button" onClick={() => handleEdit(location)} className="text-blue-600 hover:text-blue-800">
-                                                    Modifier
-                                                </button>
+                                                    <ActionIconButton
+                                                        title="Modifier"
+                                                        onClick={() => handleEdit(location)}
+                                                        className="text-blue-700 hover:bg-blue-50"
+                                                    >
+                                                        <IconEdit />
+                                                    </ActionIconButton>
                                             )}
                                             {canManageAdvanced && (
                                                     <>
-                                                    <button type="button" onClick={() => openReturnDialog(location.id)} className="text-emerald-600 hover:text-emerald-800">
-                                                        Retour
-                                                    </button>
-                                                    <button type="button" onClick={() => openExtendDialog(location.id)} className="text-indigo-600 hover:text-indigo-800">
-                                                        Prolonger
-                                                    </button>
+                                                        <ActionIconButton
+                                                            title="Retour"
+                                                            onClick={() => openReturnDialog(location.id)}
+                                                            className="text-emerald-700 hover:bg-emerald-50"
+                                                        >
+                                                            <IconReturn />
+                                                        </ActionIconButton>
+                                                        <ActionIconButton
+                                                            title="Prolonger"
+                                                            onClick={() => openExtendDialog(location.id)}
+                                                            className="text-cyan-700 hover:bg-cyan-50"
+                                                        >
+                                                            <IconExtend />
+                                                        </ActionIconButton>
                                                 </>
                                             )}
                                             {canDeleteLocation && (
-                                                <button type="button" onClick={() => requestDelete(location)} className="text-red-600 hover:text-red-800">
-                                                    Supprimer
-                                                </button>
+                                                    <ActionIconButton
+                                                        title="Supprimer"
+                                                        onClick={() => requestDelete(location)}
+                                                        className="text-red-700 hover:bg-red-50"
+                                                    >
+                                                        <IconDelete />
+                                                    </ActionIconButton>
                                             )}
+                                            </div>
                                         </td>
                                     )}
                                 </tr>

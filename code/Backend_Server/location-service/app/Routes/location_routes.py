@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
 from app.Controller.location_controller import (
     assert_location_scope,
+    build_location_contract_pdf,
     create_location,
     delete_location,
     extend_location,
@@ -65,6 +67,23 @@ def get_location(
     location = get_location_or_404(db, location_id)
     assert_location_scope(location, current_user)
     return location
+
+
+@router.get("/{location_id}/contrat-pdf")
+def download_location_contract_pdf(
+    location_id: int,
+    db: Session = Depends(get_db),
+    current_user: AuthContext = Depends(get_current_user),
+):
+    location = get_location_or_404(db, location_id)
+    assert_location_scope(location, current_user)
+    pdf_bytes = build_location_contract_pdf(location, current_user)
+    file_name = f"contrat-location-{location.id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+    )
 
 
 @router.put("/{location_id}", response_model=LocationResponse)

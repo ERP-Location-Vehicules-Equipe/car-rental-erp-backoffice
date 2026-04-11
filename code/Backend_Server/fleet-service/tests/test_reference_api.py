@@ -73,13 +73,17 @@ def test_modeles_crud_flow(client):
     assert get_response.status_code == 200
     assert get_response.json()["nom"] == "Clio"
 
+    marque2_response = client.post("/marques/", json={"nom": "Peugeot"})
+    assert marque2_response.status_code == 201
+    marque2_id = marque2_response.json()["id"]
+
     update_response = client.put(
         f"/modeles/{modele_id}",
-        json={"marque_id": 2, "nom": "Megane"},
+        json={"marque_id": marque2_id, "nom": "Megane"},
     )
     assert update_response.status_code == 200
     assert update_response.json()["nom"] == "Megane"
-    assert update_response.json()["marque_id"] == 2
+    assert update_response.json()["marque_id"] == marque2_id
 
     delete_response = client.delete(f"/modeles/{modele_id}")
     assert delete_response.status_code == 204

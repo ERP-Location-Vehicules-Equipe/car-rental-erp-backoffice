@@ -38,6 +38,17 @@ const fleetService = {
     createEntretien: async (payload) => (await api.post("/fleet/entretiens/", payload)).data,
     updateEntretien: async (id, payload) => (await api.put(`/fleet/entretiens/${id}`, payload)).data,
     deleteEntretien: async (id) => (await api.delete(`/fleet/entretiens/${id}`)).data,
+
+    // Assurances
+    getAssurances: async () => (await api.get("/fleet/assurances/")).data,
+    getAssuranceById: async (id) => (await api.get(`/fleet/assurances/${id}`)).data,
+    getVehicleAssurances: async (vehicleId) => (
+        await api.get(`/fleet/vehicles/${vehicleId}/assurances`)
+    ).data,
+    createAssurance: async (payload) => (await api.post("/fleet/assurances/", payload)).data,
+    updateAssurance: async (id, payload) => (await api.put(`/fleet/assurances/${id}`, payload)).data,
+    deleteAssurance: async (id) => (await api.delete(`/fleet/assurances/${id}`)).data,
+    scanAssuranceReminders: async () => (await api.post("/fleet/assurances/reminders/scan")).data,
 };
 
 export default fleetService;

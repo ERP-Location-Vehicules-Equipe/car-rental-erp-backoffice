@@ -3,16 +3,19 @@ import logging
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from controllers.categorie_controller import router as categorie_router
 from controllers.entretien_controller import router as entretien_router
+from controllers.assurance_controller import router as assurance_router
 from controllers.marque_controller import router as marque_router
 from controllers.modele_controller import router as modele_router
 from controllers.vehicle_controller import router as vehicle_router
 from db import Base, engine
+from models.assurance import VehicleAssurance
 from models.categorie import Categorie
 from models.entretien import VehicleEntretien
 from models.marque import Marque
@@ -169,11 +172,54 @@ def sync_entretien_schema() -> None:
             )
 
 
+def sync_assurance_schema() -> None:
+    inspector = inspect(engine)
+
+    if "vehicle_assurances" not in inspector.get_table_names():
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("vehicle_assurances")
+    }
+
+    if "created_at" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE vehicle_assurances ADD COLUMN created_at TIMESTAMP")
+            )
+
+    if "reminder_sent_at" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE vehicle_assurances ADD COLUMN reminder_sent_at TIMESTAMP")
+            )
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE vehicle_assurances "
+                "SET created_at = CURRENT_TIMESTAMP "
+                "WHERE created_at IS NULL"
+            )
+        )
+
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE vehicle_assurances "
+                    "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
+
+
 sync_vehicle_schema()
 sync_entretien_schema()
+sync_assurance_schema()
 
 app.include_router(vehicle_router)
 app.include_router(entretien_router)
+app.include_router(assurance_router)
 app.include_router(categorie_router)
 app.include_router(marque_router)
 app.include_router(modele_router)
@@ -193,7 +239,7 @@ async def validation_exception_handler(_, exc: RequestValidationError):
         status_code=422,
         content={
             "detail": "Invalid input data",
-            "errors": exc.errors(),
+            "errors": jsonable_encoder(exc.errors()),
         },
     )
 

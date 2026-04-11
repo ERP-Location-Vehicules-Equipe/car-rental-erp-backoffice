@@ -54,6 +54,8 @@ const formatDateTime = (value) => {
     return date.toLocaleString();
 };
 
+const normalizeVehicleStatus = (value) => String(value || '').trim().toLowerCase();
+
 const TransferDetailPage = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -165,12 +167,12 @@ const TransferDetailPage = () => {
         if (sourceAgenceId) {
             params.source_agence_id = Number(sourceAgenceId);
         }
-        if (isSuperAdmin) {
-            params.include_my_agence = true;
-        }
+        params.include_my_agence = true;
 
         const availability = await transferService.getTransferCandidates(params);
-        const vehicles = Array.isArray(availability?.vehicles) ? [...availability.vehicles] : [];
+        const vehicles = Array.isArray(availability?.vehicles)
+            ? availability.vehicles.filter((vehicle) => normalizeVehicleStatus(vehicle?.statut) === 'disponible')
+            : [];
 
         if (currentVehicleId && !vehicles.some((item) => Number(item.id) === Number(currentVehicleId))) {
             try {
@@ -592,6 +594,11 @@ const TransferDetailPage = () => {
                                 disabled={!isSuperAdmin}
                             >
                                 <option value="">Selectionner</option>
+                                {candidateVehicles.length === 0 && (
+                                    <option value="" disabled>
+                                        Aucun vehicule disponible
+                                    </option>
+                                )}
                                 {candidateVehicles.map((vehicle) => (
                                     <option key={vehicle.id} value={vehicle.id}>
                                         {getVehicleLabel(vehicle)} - {agenceById[Number(vehicle.agence_id)] || "Agence inconnue"}

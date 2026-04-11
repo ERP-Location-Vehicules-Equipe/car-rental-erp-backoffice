@@ -25,6 +25,8 @@ const NotificationsManagement = () => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [search, setSearch] = useState('');
     const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+    const [markAllBusy, setMarkAllBusy] = useState(false);
+    const [rowBusyId, setRowBusyId] = useState(null);
 
     const loadInbox = async ({ silent = false } = {}) => {
         if (!silent) {
@@ -74,6 +76,8 @@ const NotificationsManagement = () => {
                 item.title,
                 item.message,
                 item.eventType,
+                item.eventTypeLabel,
+                item.agenceName,
                 item.metadata?.vehicle_label,
                 item.metadata?.vehicule_label,
                 item.metadata?.location_id,
@@ -83,6 +87,9 @@ const NotificationsManagement = () => {
     }, [items, search, showUnreadOnly]);
 
     const handleMarkRead = async (item) => {
+        if (rowBusyId === item.id) {
+            return;
+        }
         if (item.isRead) {
             if (item.actionUrl) {
                 navigate(item.actionUrl);
@@ -91,6 +98,7 @@ const NotificationsManagement = () => {
         }
 
         setError('');
+        setRowBusyId(item.id);
         try {
             await notificationService.markRead(item.id);
             setItems((prev) => prev.map((entry) => (
@@ -103,12 +111,18 @@ const NotificationsManagement = () => {
             }
         } catch (requestError) {
             setError(getErrorMessage(requestError, 'Impossible de marquer la notification comme lue.'));
+        } finally {
+            setRowBusyId(null);
         }
     };
 
     const handleMarkAllRead = async () => {
+        if (markAllBusy) {
+            return;
+        }
         setError('');
         setNotice('');
+        setMarkAllBusy(true);
         try {
             await notificationService.markAllRead();
             setItems((prev) => prev.map((entry) => ({ ...entry, isRead: true })));
@@ -116,6 +130,8 @@ const NotificationsManagement = () => {
             setNotice('Toutes les notifications sont marquees comme lues.');
         } catch (requestError) {
             setError(getErrorMessage(requestError, 'Impossible de marquer toutes les notifications comme lues.'));
+        } finally {
+            setMarkAllBusy(false);
         }
     };
 
@@ -174,9 +190,10 @@ const NotificationsManagement = () => {
                         <button
                             type="button"
                             onClick={handleMarkAllRead}
+                            disabled={markAllBusy}
                             className="px-3 py-2 rounded-md text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700"
                         >
-                            Tout marquer lu
+                            {markAllBusy ? 'Traitement...' : 'Tout marquer lu'}
                         </button>
                     </div>
                 </div>
@@ -199,15 +216,16 @@ const NotificationsManagement = () => {
                                     <td className="px-4 py-3 text-sm text-slate-700">{item.isRead ? 'Lue' : 'Nouvelle'}</td>
                                     <td className="px-4 py-3 text-sm font-semibold text-slate-900">{item.title}</td>
                                     <td className="px-4 py-3 text-sm text-slate-700">{item.message}</td>
-                                    <td className="px-4 py-3 text-sm text-slate-700">{item.eventType}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-700">{item.eventTypeLabel}</td>
                                     <td className="px-4 py-3 text-sm text-slate-700">{formatDateTime(item.createdAt)}</td>
                                     <td className="px-4 py-3 text-sm">
                                         <button
                                             type="button"
                                             onClick={() => handleMarkRead(item)}
+                                            disabled={rowBusyId === item.id}
                                             className="text-blue-700 hover:text-blue-900 font-semibold"
                                         >
-                                            {item.actionUrl ? 'Voir details' : 'Marquer lu'}
+                                            {rowBusyId === item.id ? '...' : (item.actionUrl ? 'Voir details' : 'Marquer lu')}
                                         </button>
                                     </td>
                                 </tr>

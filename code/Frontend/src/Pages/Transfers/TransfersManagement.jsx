@@ -71,6 +71,8 @@ const toDateOnly = (value) => {
     return date.toISOString().slice(0, 10);
 };
 
+const normalizeVehicleStatus = (value) => String(value || '').trim().toLowerCase();
+
 const TransfersManagement = () => {
     const navigate = useNavigate();
     const currentUser = authService.getCurrentUser();
@@ -237,12 +239,57 @@ const TransfersManagement = () => {
         if (sourceAgenceId) {
             params.source_agence_id = Number(sourceAgenceId);
         }
-        if (isSuperAdmin) {
-            params.include_my_agence = true;
-        }
+        params.include_my_agence = true;
+
         const availability = await transferService.getTransferCandidates(params);
-        setCandidateVehicles(Array.isArray(availability?.vehicles) ? availability.vehicles : []);
-    }, [isSuperAdmin]);
+        const vehicles = Array.isArray(availability?.vehicles)
+            ? availability.vehicles.filter((vehicle) => normalizeVehicleStatus(vehicle?.statut) === 'disponible')
+            : [];
+        setCandidateVehicles(vehicles);
+        return vehicles;
+    }, []);
+
+    const ensureTransferVehicleLabels = useCallback(async (transfersData, baseVehicles = []) => {
+        const transferVehicleIds = [
+            ...new Set(
+                (Array.isArray(transfersData) ? transfersData : [])
+                    .map((item) => Number(item?.vehicule_id))
+                    .filter((id) => Number.isInteger(id) && id > 0)
+            ),
+        ];
+        if (!transferVehicleIds.length) {
+            return;
+        }
+
+        const knownIds = new Set((Array.isArray(baseVehicles) ? baseVehicles : []).map((item) => Number(item.id)));
+        const missingIds = transferVehicleIds.filter((id) => !knownIds.has(id));
+        if (!missingIds.length) {
+            return;
+        }
+
+        const resolvedVehicles = await Promise.all(
+            missingIds.map(async (vehicleId) => {
+                try {
+                    return await fleetService.getVehicleById(vehicleId);
+                } catch {
+                    return null;
+                }
+            })
+        );
+
+        const extras = resolvedVehicles.filter(Boolean);
+        if (!extras.length) {
+            return;
+        }
+
+        setCandidateVehicles((prev) => {
+            const byId = new Map((prev || []).map((item) => [Number(item.id), item]));
+            extras.forEach((vehicle) => {
+                byId.set(Number(vehicle.id), vehicle);
+            });
+            return Array.from(byId.values());
+        });
+    }, []);
 
     const loadData = useCallback(async (silent = false) => {
         if (silent) {
@@ -260,7 +307,8 @@ const TransfersManagement = () => {
                 fleetService.getMarques(),
             ]);
 
-            setTransfers(Array.isArray(transfersData) ? transfersData : []);
+            const normalizedTransfers = Array.isArray(transfersData) ? transfersData : [];
+            setTransfers(normalizedTransfers);
             setAgences(Array.isArray(agencesResult.agences) ? agencesResult.agences : []);
             setModeles(Array.isArray(modelesData) ? modelesData : []);
             setMarques(Array.isArray(marquesData) ? marquesData : []);
@@ -269,14 +317,15 @@ const TransfersManagement = () => {
                     ? ''
                     : "Service Agence indisponible. Les noms d'agences peuvent etre incomplets."
             );
-            await loadCandidates(formData.agence_source_id || null);
+            const baseVehicles = await loadCandidates(formData.agence_source_id || null);
+            await ensureTransferVehicleLabels(normalizedTransfers, baseVehicles);
         } catch (loadError) {
             setError(getErrorMessage(loadError, 'Erreur lors du chargement du service transfer.'));
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [formData.agence_source_id, loadCandidates]);
+    }, [ensureTransferVehicleLabels, formData.agence_source_id, loadCandidates]);
 
     useEffect(() => {
         loadData();
@@ -319,13 +368,22 @@ const TransfersManagement = () => {
     };
 
     const buildPayload = () => {
+        const selectedVehicle = candidateVehicles.find(
+            (vehicle) => Number(vehicle.id) === Number(formData.vehicule_id)
+        );
+        const fallbackSourceId = selectedVehicle?.agence_id ? Number(selectedVehicle.agence_id) : NaN;
+        const requestedSourceId = Number(formData.agence_source_id);
+        const sourceId = Number.isInteger(requestedSourceId) && requestedSourceId > 0
+            ? requestedSourceId
+            : fallbackSourceId;
+
         const destinationId = isSuperAdmin
             ? Number(formData.agence_destination_id)
             : Number(userAgenceId);
 
         return {
             vehicule_id: Number(formData.vehicule_id),
-            agence_source_id: Number(formData.agence_source_id),
+            agence_source_id: sourceId,
             agence_destination_id: destinationId,
             date_depart: toIsoOrNull(formData.date_depart),
             date_arrivee_prevue: toIsoOrNull(formData.date_arrivee_prevue),
@@ -386,7 +444,7 @@ const TransfersManagement = () => {
         );
     };
 
-    const handleEdit = (transfer) => {
+    const handleEdit = async (transfer) => {
         setEditingId(transfer.id);
         setFormData({
             vehicule_id: String(transfer.vehicule_id || ''),
@@ -397,6 +455,8 @@ const TransfersManagement = () => {
             reason: transfer.reason || '',
             notes: transfer.notes || '',
         });
+        const baseVehicles = await loadCandidates(transfer.agence_source_id || null);
+        await ensureTransferVehicleLabels([transfer], baseVehicles);
     };
 
     const openStatusDateDialog = (transfer, mode) => {
@@ -635,9 +695,14 @@ const TransfersManagement = () => {
                                 disabled={editingId !== null && !isSuperAdmin}
                             >
                                 <option value="">Selectionner</option>
+                                {candidateVehicles.length === 0 && (
+                                    <option value="" disabled>
+                                        Aucun vehicule disponible
+                                    </option>
+                                )}
                                 {candidateVehicles.map((vehicle) => (
                                     <option key={vehicle.id} value={vehicle.id}>
-                                        {getVehicleLabel(vehicle)} - {agenceById[Number(vehicle.agence_id)] || `Agence #${vehicle.agence_id}`}
+                                        {getVehicleLabel(vehicle)} - {agenceById[Number(vehicle.agence_id)] || "Agence inconnue"}
                                     </option>
                                 ))}
                             </select>

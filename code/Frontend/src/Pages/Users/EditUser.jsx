@@ -49,7 +49,7 @@ const EditUser = () => {
                 const user = await userService.getUserById(id);
                 setOriginalUser(user);
 
-                const agencesResult = await getAgencesCachedSafe();
+                const agencesResult = await getAgencesCachedSafe(isSuperAdmin);
                 const safeAgences = agencesResult.agences;
                 setAgences(safeAgences);
                 setAgenceServiceAvailable(agencesResult.available);

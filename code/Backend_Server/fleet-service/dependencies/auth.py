@@ -24,6 +24,7 @@ class AuthContext:
     user_id: int
     role: str
     agence_id: int | None
+    token: str
     email: str | None = None
 
     @property
@@ -81,6 +82,7 @@ def get_current_user(
         user_id=int(user_id),
         role=role,
         agence_id=int(agence_id) if agence_id is not None else None,
+        token=credentials.credentials,
         email=email,
     )
 
@@ -104,3 +106,17 @@ def admin_or_super_admin_required(
         )
     return current_user
 
+
+def employee_or_admin_required(
+    current_user: AuthContext = Depends(get_current_user),
+) -> AuthContext:
+    if not (
+        current_user.is_employe
+        or current_user.is_admin
+        or current_user.is_super_admin
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Employee, admin or super admin access required",
+        )
+    return current_user

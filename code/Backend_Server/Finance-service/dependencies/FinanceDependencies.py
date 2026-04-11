@@ -109,6 +109,17 @@ def admin_or_super_admin_required(
     return current_user
 
 
+def super_admin_required(
+    current_user: AuthContext = Depends(get_current_user),
+) -> AuthContext:
+    if not current_user.is_super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required",
+        )
+    return current_user
+
+
 # ==============================
 # Employee/Admin/Super admin required
 # ==============================
