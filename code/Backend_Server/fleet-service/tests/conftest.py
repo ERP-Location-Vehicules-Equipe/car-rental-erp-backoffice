@@ -5,6 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from jose import jwt
+from sqlalchemy import inspect
 
 _original_httpx_post = httpx.post
 
@@ -31,6 +32,28 @@ from main import app  # noqa: E402
 from models.assurance import VehicleAssurance  # noqa: F401, E402
 from models.entretien import VehicleEntretien  # noqa: F401, E402
 from models.vehicle import Vehicle  # noqa: F401, E402
+
+REQUIRED_TABLES = {
+    "vehicles",
+    "vehicle_entretiens",
+    "vehicle_assurances",
+    "categories",
+    "marques",
+    "modeles",
+}
+
+
+def _recreate_test_database() -> None:
+    # Always start each test from a fresh SQLite file to avoid stale schema/data.
+    engine.dispose()
+    if TEST_DB_PATH.exists():
+        TEST_DB_PATH.unlink()
+
+    Base.metadata.create_all(bind=engine)
+    existing_tables = set(inspect(engine).get_table_names())
+    missing_tables = REQUIRED_TABLES - existing_tables
+    if missing_tables:
+        raise RuntimeError(f"Missing expected test tables: {sorted(missing_tables)}")
 
 
 def _auth_headers() -> dict[str, str]:
@@ -83,10 +106,11 @@ def stub_finance_http(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def reset_database():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    _recreate_test_database()
     yield
-    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+    if TEST_DB_PATH.exists():
+        TEST_DB_PATH.unlink()
 
 
 @pytest.fixture

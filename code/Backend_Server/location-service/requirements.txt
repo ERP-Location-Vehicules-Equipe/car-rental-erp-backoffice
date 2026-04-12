@@ -6,3 +6,4 @@ python-dotenv
 requests
 python-jose[cryptography]
 reportlab
+pytest

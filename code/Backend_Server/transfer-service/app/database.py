@@ -22,6 +22,10 @@ if not DATABASE_URL:
 
 def ensure_database_exists(database_url: str) -> None:
     url = make_url(database_url)
+    # During local tests we often use sqlite; database provisioning is only for PostgreSQL.
+    if url.get_backend_name() != "postgresql":
+        return
+
     database_name = url.database
 
     if not database_name:
