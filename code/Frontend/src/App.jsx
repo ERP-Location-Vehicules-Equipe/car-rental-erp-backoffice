@@ -1,35 +1,156 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+
+import authService from './Services/authService';
+import userService from './Services/userService';
+
+import MainLayout from './Layouts/MainLayout';
+import ProtectedRoute from './Routes/ProtectedRoute';
+import PublicRoute from './Routes/PublicRoute';
+
+import Login from './Pages/Auth/Login';
+import Dashboard from './Pages/Dashboard/Dashboard';
+import Profile from './Pages/Profile/Profile';
+import UsersList from './Pages/Users/UsersList';
+import CreateUser from './Pages/Users/CreateUser';
+import EditUser from './Pages/Users/EditUser';
+import UserDetail from './Pages/Users/UserDetail';
+import AgencesList from './Pages/Agences/AgencesList';
+import CreateAgence from './Pages/Agences/CreateAgence';
+import EditAgence from './Pages/Agences/EditAgence';
+import AgenceDetail from './Pages/Agences/AgenceDetail';
+import FleetManagement from './Pages/Fleet/FleetManagement';
+import VehicleDetailPage from './Pages/Fleet/VehicleDetailPage';
+import EntretienDetailPage from './Pages/Fleet/EntretienDetailPage';
+import LocationsManagement from './Pages/Locations/LocationsManagement';
+import LocationDetailPage from './Pages/Locations/LocationDetailPage';
+import TransfersManagement from './Pages/Transfers/TransfersManagement';
+import TransferDetailPage from './Pages/Transfers/TransferDetailPage';
+import FinanceManagement from './Pages/Finance/FinanceManagement';
+import NotificationsManagement from './Pages/Notifications/NotificationsManagement';
 
 function App() {
-  const [count, setCount] = useState(0)
+    const [isInitializing, setIsInitializing] = useState(true);
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    useEffect(() => {
+        const checkAuthStatus = async () => {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                try {
+                    await userService.getProfile();
+                } catch (error) {
+                    if (error?.response?.status !== 401) {
+                        authService.logout();
+                    }
+                }
+            }
+            setIsInitializing(false);
+        };
+
+        checkAuthStatus();
+    }, []);
+
+    if (isInitializing) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans">
+                <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4 border-t-2 border-t-transparent shadow-sm"></div>
+                    <p className="text-slate-500 font-medium animate-pulse">Verification des acces au systeme ERP...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <Router>
+            <Routes>
+                <Route
+                    path="/login"
+                    element={(
+                        <PublicRoute>
+                            <Login />
+                        </PublicRoute>
+                    )}
+                />
+
+                <Route
+                    element={(
+                        <ProtectedRoute>
+                            <MainLayout />
+                        </ProtectedRoute>
+                    )}
+                >
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/agences" element={<AgencesList />} />
+                    <Route path="/agences/:id" element={<AgenceDetail />} />
+                    <Route path="/fleet" element={<FleetManagement />} />
+                    <Route path="/fleet/vehicles/:id" element={<VehicleDetailPage />} />
+                    <Route path="/fleet/entretiens/:id" element={<EntretienDetailPage />} />
+                    <Route path="/locations" element={<LocationsManagement />} />
+                    <Route path="/locations/:id" element={<LocationDetailPage />} />
+                    <Route path="/transferts" element={<TransfersManagement />} />
+                    <Route path="/transferts/:id" element={<TransferDetailPage />} />
+                    <Route path="/finance" element={<FinanceManagement />} />
+                    <Route path="/notifications" element={<NotificationsManagement />} />
+
+                    <Route
+                        path="/agences/create"
+                        element={(
+                            <ProtectedRoute allowedRoles={[authService.ROLE_SUPER_ADMIN]}>
+                                <CreateAgence />
+                            </ProtectedRoute>
+                        )}
+                    />
+                    <Route
+                        path="/agences/edit/:id"
+                        element={(
+                            <ProtectedRoute allowedRoles={[authService.ROLE_SUPER_ADMIN]}>
+                                <EditAgence />
+                            </ProtectedRoute>
+                        )}
+                    />
+
+                    <Route
+                        path="/users"
+                        element={(
+                            <ProtectedRoute allowedRoles={[authService.ROLE_ADMIN, authService.ROLE_SUPER_ADMIN]}>
+                                <UsersList />
+                            </ProtectedRoute>
+                        )}
+                    />
+                    <Route
+                        path="/users/create"
+                        element={(
+                            <ProtectedRoute allowedRoles={[authService.ROLE_ADMIN, authService.ROLE_SUPER_ADMIN]}>
+                                <CreateUser />
+                            </ProtectedRoute>
+                        )}
+                    />
+                    <Route
+                        path="/users/:id"
+                        element={(
+                            <ProtectedRoute allowedRoles={[authService.ROLE_ADMIN, authService.ROLE_SUPER_ADMIN]}>
+                                <UserDetail />
+                            </ProtectedRoute>
+                        )}
+                    />
+                    <Route
+                        path="/users/edit/:id"
+                        element={(
+                            <ProtectedRoute allowedRoles={[authService.ROLE_ADMIN, authService.ROLE_SUPER_ADMIN]}>
+                                <EditUser />
+                            </ProtectedRoute>
+                        )}
+                    />
+                </Route>
+
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </Router>
+    );
 }
 
-export default App
+export default App;

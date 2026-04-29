@@ -1,0 +1,188 @@
+name: backend_server
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: erp_rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: erp_user
+      RABBITMQ_DEFAULT_PASS: erp_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  postgres_db:
+    image: postgres:15
+    container_name: erp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_password
+      POSTGRES_DB: auth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: erp_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@erp.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres_db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  auth_service:
+    build: ./Backend_Server/Auth-service
+    container_name: auth_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/Auth-service/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres_db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+  gateway_service:
+    build: ./Backend_Server/Gateway-service
+    container_name: gateway_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/Gateway-service/.env
+    ports:
+      - "8001:8001"
+    depends_on:
+      - auth_service
+      - agence_service
+      - finance_service
+      - transfer_service
+      - notification_service
+  agence_service:
+    build: ./Backend_Server/Agence-service
+    container_name: agence_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/Agence-service/.env
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres_db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+  finance_service:
+    build: ./Backend_Server/Finance-service
+    container_name: finance_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/Finance-service/.env
+    ports:
+      - "8003:8003"
+    depends_on:
+      - postgres_db
+
+  fleet_service:
+    build: ./Backend_Server/fleet-service
+    container_name: fleet_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/fleet-service/.env
+    ports:
+      - "8004:8004"
+    depends_on:
+      - postgres_db
+
+  location_service:
+    build: ./Backend_Server/location-service
+    container_name: location_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/location-service/.env
+    ports:
+      - "8005:8005"
+    depends_on:
+      - postgres_db
+
+  notification_service:
+    build: ./Backend_Server/notification_service
+    container_name: notification_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/notification_service/.env
+    ports:
+      - "8006:8006"
+    depends_on:
+      postgres_db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  notification_worker:
+    build: ./Backend_Server/notification_service
+    container_name: notification_worker
+    restart: always
+    command: python worker.py
+    env_file:
+      - ./Backend_Server/notification_service/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  report_service:
+    build: ./Backend_Server/Report-service
+    container_name: report_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/Report-service/.env
+    ports:
+      - "8007:8007"
+    depends_on:
+      - postgres_db
+
+  transfer_service:
+    build: ./Backend_Server/transfer-service
+    container_name: transfer_microservice
+    restart: always
+    env_file:
+      - ./Backend_Server/transfer-service/app/.env
+    ports:
+      - "8008:8008"
+    depends_on:
+      - postgres_db
+
+  frontend_app:
+    build: ./Frontend
+    container_name: erp_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_GATEWAY_URL: http://localhost:8001/api
+    depends_on:
+      - gateway_service
+
+volumes:
+  postgres_data:
+    name: backend_server_postgres_data
+  pgadmin_data:
+    name: backend_server_pgadmin_data
+  rabbitmq_data:
+    name: backend_server_rabbitmq_data

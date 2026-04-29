@@ -38,3 +38,16 @@ def test_login_user_not_found(client, load_json_payload):
     assert response.status_code == 401
     assert body["detail"] == "Invalid credentials"
 
+
+def test_login_user_inactive_account(client, db_session, employee_user, load_json_payload):
+    """Doit retourner 403 si le compte utilisateur est desactive."""
+    employee_user.actif = False
+    db_session.commit()
+
+    payload = load_json_payload("login.json")
+    response = client.post("/api/auth/login", json=payload)
+    body = response.json()
+
+    assert response.status_code == 403
+    assert body["detail"] == "Account is inactive. Please contact your admin."
+

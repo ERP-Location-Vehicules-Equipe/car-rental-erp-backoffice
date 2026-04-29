@@ -1,0 +1,94 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Utilisateur Authentifie" as AuthUser
+actor "Admin" as Admin
+actor "Super Admin" as SuperAdmin
+actor "Employe" as Employe
+
+Employe --|> AuthUser
+Admin --|> AuthUser
+SuperAdmin --|> Admin
+
+rectangle "ERP Backoffice" {
+  usecase "Se connecter" as UC_Login
+  usecase "Consulter profil" as UC_ViewProfile
+  usecase "Modifier profil" as UC_EditProfile
+  usecase "Consulter agences" as UC_ViewAgences
+
+  package "Gestion Utilisateurs" {
+    usecase "Gerer utilisateurs" as UC_ManageUsers
+    usecase "Consulter utilisateurs" as UC_ViewUsers
+    usecase "Voir detail utilisateur" as UC_UserDetail
+    usecase "Creer utilisateur" as UC_CreateUser
+    usecase "Modifier utilisateur" as UC_UpdateUser
+    usecase "Activer / Desactiver utilisateur" as UC_ToggleUser
+    usecase "Supprimer utilisateur (soft delete)" as UC_DeleteUser
+
+    usecase "Creer employe" as UC_CreateEmploye
+    usecase "Creer admin" as UC_CreateAdmin
+    usecase "Modifier employe" as UC_UpdateEmploye
+    usecase "Modifier admin" as UC_UpdateAdmin
+  }
+
+  package "Gestion Agences" {
+    usecase "Gerer agences" as UC_ManageAgences
+    usecase "Creer agence" as UC_CreateAgence
+    usecase "Modifier agence" as UC_EditAgence
+    usecase "Activer / Desactiver agence" as UC_ToggleAgence
+    usecase "Supprimer agence (soft delete)" as UC_DeleteAgence
+    usecase "Voir agences supprimees" as UC_ViewDeletedAgences
+    usecase "Restaurer agence supprimee" as UC_RestoreAgence
+  }
+}
+
+' Cas communs a tout utilisateur authentifie
+AuthUser --> UC_Login
+AuthUser --> UC_ViewProfile
+AuthUser --> UC_EditProfile
+AuthUser --> UC_ViewAgences
+
+' Include pour decomposer les macro use cases
+UC_ManageUsers ..> UC_ViewUsers : <<include>>
+UC_ManageUsers ..> UC_UserDetail : <<include>>
+UC_ManageUsers ..> UC_CreateUser : <<include>>
+UC_ManageUsers ..> UC_UpdateUser : <<include>>
+UC_ManageUsers ..> UC_ToggleUser : <<include>>
+UC_ManageUsers ..> UC_DeleteUser : <<include>>
+
+UC_ManageAgences ..> UC_CreateAgence : <<include>>
+UC_ManageAgences ..> UC_EditAgence : <<include>>
+UC_ManageAgences ..> UC_ToggleAgence : <<include>>
+UC_ManageAgences ..> UC_DeleteAgence : <<include>>
+UC_ManageAgences ..> UC_ViewDeletedAgences : <<include>>
+UC_ManageAgences ..> UC_RestoreAgence : <<include>>
+
+' Extend pour specialiser creation/modification user
+UC_CreateEmploye ..> UC_CreateUser : <<extend>>
+UC_CreateAdmin ..> UC_CreateUser : <<extend>>
+UC_UpdateEmploye ..> UC_UpdateUser : <<extend>>
+UC_UpdateAdmin ..> UC_UpdateUser : <<extend>>
+
+' Acteurs metier
+Admin --> UC_ManageUsers
+Admin --> UC_CreateEmploye
+Admin --> UC_UpdateEmploye
+
+SuperAdmin --> UC_ManageAgences
+SuperAdmin --> UC_CreateAdmin
+SuperAdmin --> UC_UpdateAdmin
+
+note right of Admin
+Scope admin:
+- gere uniquement les employes de sa propre agence
+- ne peut pas creer/modifier des admins
+end note
+
+note right of SuperAdmin
+Scope super admin:
+- gere toutes les agences
+- gere admins + employes sur toute l'application
+end note
+
+@enduml
