@@ -1,5 +1,7 @@
 import os
 import sys
+import types
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,32 @@ os.environ["DEBUG"] = "true"
 
 TEST_DB_PATH = Path(__file__).resolve().parent / "test_notification.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH.as_posix()}"
+
+# Make tests resilient even if optional mail dependency isn't installed locally.
+if importlib.util.find_spec("aiosmtplib") is None:
+    fake_aiosmtplib = types.ModuleType("aiosmtplib")
+
+    class _FakeSMTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self):
+            return None
+
+        async def starttls(self):
+            return None
+
+        async def login(self, *args, **kwargs):
+            return None
+
+        async def send_message(self, *args, **kwargs):
+            return None
+
+        async def quit(self):
+            return None
+
+    fake_aiosmtplib.SMTP = _FakeSMTP
+    sys.modules["aiosmtplib"] = fake_aiosmtplib
 
 from app.db.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402

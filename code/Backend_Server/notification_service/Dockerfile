@@ -2,11 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy everything
-COPY . .
+# Copy requirements first for better layer caching
+COPY requirements.txt .
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=180 --retries 10 -r requirements.txt
+
+# Copy app source
+COPY . .
 
 EXPOSE 8006
 

@@ -6,7 +6,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # 👇 هنا كتنصّب جميع dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=180 --retries 10 -r requirements.txt
 
 # 👇 من بعد تنسخ المشروع كامل
 COPY . .
